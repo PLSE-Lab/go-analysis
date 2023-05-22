@@ -1,0 +1,3 @@
+Project-Name: go-analysis
+Source: src/main/rascal
+Require-Libraries: 
