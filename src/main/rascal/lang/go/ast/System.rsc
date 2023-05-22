@@ -1,6 +1,6 @@
 module lang::go::ast::System
 
-import lang::php::go::AbstractSyntax;
+import lang::go::ast::AbstractSyntax;
 
 data System 
 	= system(map[loc fileloc, File file] files)
