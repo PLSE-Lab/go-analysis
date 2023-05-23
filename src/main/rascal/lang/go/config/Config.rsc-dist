@@ -1,0 +1,16 @@
+module lang::go::config::Config
+
+@doc{The location of the Go executable}
+public loc goLoc = |file:///opt/homebrew/bin/go|;
+
+@doc{The base install location for the go2rascal project}
+public loc parserDir = |file:///Users/your-user-name/go-analysis/go2rascal|;
+
+@doc{Debugging options
+	@logLevel {
+		Log level 0 => no logging;
+		Log level 1 => main logging;
+		Log level 2 => debug logging;
+	}
+}
+public int logLevel = 2;
