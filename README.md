@@ -34,3 +34,26 @@ You need to have Go installed somewhere on your computer. The `goLoc` variable h
 The variable `parserDir` is set to the location of the go2rascal project mentioned above. Just set this to the root of the project directory for the cloned project.
 
 The `logLevel` determines which log messages you will see. It's generally useful to leave it at `2`, but you can set it to `0` if you do not want to see any messages.
+
+# Loading a Go file into Rascal
+
+With the configuration done, you can load a Go file into Rascal. A single file is represented using the `File` AST type. To load it, you should load the modules for utilities and for the AST first:
+
+```
+rascal>import lang::go::ast::AbstractSyntax;
+ok
+rascal>import lang::go::util::Utils;
+ok
+```
+
+Now, you can load a single file using the `loadGoFile` function. For instance, you can load a Go source file, `/tmp/sample.go`, using the following command:
+
+```
+sampleAst = loadGoFile(|file:///tmp/sample.go|);
+```
+
+This will load the AST for the file and save it into variable `sampleAst`.
+
+# Coming Soon
+
+We are currently adding AST types, and will also add functionality that will allow you to load an entire Go system into a variable of the `System` type, as defined in `lang::go::ast::System`.
