@@ -6,8 +6,8 @@ data File(loc at=|unknown:///|)
     ;
 
 data Decl(loc at=|unknown:///|)
-    = toDoDecl(); // Need to define the actual decl constructors
+    = placeholderDecl(); // Need to define the actual decl constructors
 
 data ImportSpec(loc at=|unknown:///|)
-    = toDoSpec(); // Need to define the actual import specs
+    = placeholderImportSpec(); // Need to define the actual import specs
 

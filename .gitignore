@@ -23,3 +23,6 @@ local.properties
 
 # Maven
 target
+
+# VSCode
+.vscode
