@@ -11,3 +11,7 @@ data Decl(loc at=|unknown:///|)
 data ImportSpec(loc at=|unknown:///|)
     = placeholderImportSpec(); // Need to define the actual import specs
 
+data Expr(loc at=|unknown:///|)
+    = binaryExpr(Expr left, Expr right)
+    ;
+
