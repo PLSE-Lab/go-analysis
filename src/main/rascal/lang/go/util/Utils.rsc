@@ -16,7 +16,7 @@ import util::ShellExec;
 	Log level 2 => debug logging;
 }
 public void logMessage(str message, int level) {
-	if (level <= logLevel) {
+	if (level <= log.Level) {
 		//str date = printDate(now(), "Y-MM-dd HH:mm:ss");
 		//println("<date> :: <message>");
 		println("<now()> :: <message>");
