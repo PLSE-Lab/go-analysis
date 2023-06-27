@@ -54,6 +54,17 @@ sampleAst = loadGoFile(|file:///tmp/sample.go|);
 
 This will load the AST for the file and save it into variable `sampleAst`.
 
+You can also load multiple files into a `System`. To do so, you use the `loadGoFiles` function.
+
+```
+mySystem = loadGoFiles(|file:///root/directory/for/system|);
+```
+
+All of the files will be stored in a `map` from the location of the file to the AST for the file,
+accessed as `mySystem.files`.
+
+Note that both `loadGoFile` and `loadGoFiles` have an optional keyword parameter `addLocationAnnotations`. Setting this to `false`, e.g., `loadGoFile(|file:///tmp/sample.go|, addLocationAnnotations=false)` will generate an AST that does not include location information. Otherwise, each AST node includes an `at` field that returns the location in the source code that is related to the AST node. Adding location information is recommended, both for code querying and for analyses that may need this information. 
+
 # Coming Soon
 
 We are currently adding AST types, and will also add functionality that will allow you to load an entire Go system into a variable of the `System` type, as defined in `lang::go::ast::System`.

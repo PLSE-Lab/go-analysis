@@ -8,6 +8,7 @@ import IO;
 import ValueIO;
 import String;
 import DateTime;
+import List;
 import util::ShellExec;
 
 @doc { 
@@ -65,7 +66,7 @@ private File parseGoFile(loc f, list[str] opts, File error) {
 }
 
 @doc{Load a single Go file.}
-public File loadGoFile(loc l) throws AssertionFailed {
+public File loadGoFile(loc l, bool addLocationAnnotations = true) throws AssertionFailed {
 	if (!exists(l)) return errorFile("Location <l> does not exist");
 	if (l.scheme notin {"file","home","project"}) return errorFile("Only file, home, and project locations are supported");
 	if (!isFile(l)) return errorFile("Location <l> must be a file");
@@ -73,7 +74,75 @@ public File loadGoFile(loc l) throws AssertionFailed {
 	logMessage("Loading file <l>", 2);
 	
 	list[str] opts = [ ];
+	if (addLocationAnnotations) {
+		opts = opts + [ "--addLocs=True"];
+	} else {
+		opts = opts + [ "--addLocs=False"];
+	}
+
 	File res = parseGoFile(l, opts, errorFile("Could not parse file <l.path>")); 
 	if (errorFile(err) := res) logMessage("Found error in file <l.path>. Error: <err>", 2);
 	return res;
+}
+
+@doc{Load all Go files at a given directory location, with options for which extensions are Go files and location annotations.}
+public System loadGoFiles(loc l, bool addLocationAnnotations = true, set[str] extensions = { "go" }) throws AssertionFailed {
+
+	int folderCounter = 0;
+	int folderTotal = 0;
+	
+	void increaseFolderCounter() {
+		folderCounter = folderCounter + 1;
+	}
+	void resetCounters() {
+		if (folderCounter == folderTotal) { 
+			folderTotal = 0;
+			folderCounter = 0;
+		}
+	}
+	void setFolderTotal(loc baseDir) {
+		folderTotal = countFolders(baseDir);
+	}
+
+	public int countFolders(loc d) = (1 | it + countFolders(d+f) | str f <- listEntries(d), isDirectory(d+f));
+
+	System loadGoFilesInternal(loc l) {
+		if (l.scheme == "file" && !exists(l)) throw AssertionFailed("Location <l> does not exist");
+		if (!isDirectory(l)) throw AssertionFailed("Location <l> must be a directory");
+
+		// regex filter exlucdes test/	
+		list[loc] entries = [ l + e | e <- listEntries(l)];
+		list[loc] dirEntries = [ e | e <- entries, isDirectory(e)];
+		list[loc] goEntries = [ e | e <- entries, e.extension in extensions, isFile(e)];
+
+		System goFiles = createEmptySystem();
+		
+		increaseFolderCounter();
+		if (folderTotal == 0) setFolderTotal(l);
+		
+		if (size(goEntries) > 0) {	
+			logMessage("<((folderCounter * 100) / folderTotal)>% [<folderCounter>/<folderTotal>] Parsing <size(goEntries)> files in directory: <l>", 2);
+			for (e <- goEntries) {
+				try {
+					File f = loadGoFile(e, addLocationAnnotations = addLocationAnnotations);
+					goFiles.files[e] = f;
+				} catch IO(msg) : {
+					println("<msg>");
+				} catch Java(cls, msg) : {
+					println("<cls>:<msg>");
+				}
+			}
+		}
+		
+		for (d <- dirEntries) {
+			newFiles = loadGoFilesInternal(d);
+			goFiles.files = goFiles.files + newFiles.files;
+		}
+		
+		resetCounters();
+			
+		return goFiles;
+	}
+
+	return loadGoFilesInternal(l);
 }
