@@ -26,7 +26,7 @@ public void logMessage(str message, int level) {
 
 public str executeGo(list[str] opts, loc cwd) {
 	str goBinLoc = goLoc.path;
-	logMessage("Execution options: <opts>", 2);
+	// logMessage("Execution options: <opts>", 2);
   	PID pid = createProcess(goBinLoc, args=opts, workingDir=cwd);
 	str goOutput = readEntireStream(pid);
 	str goErr = readEntireErrStream(pid);
@@ -55,7 +55,7 @@ private File parseGoFile(loc f, list[str] opts, File error) {
 	res = errorFile("Parser failed in unknown way");
 	if (trim(goOutput) != "") {
 		try { 
-			logMessage("Got output <goOutput>", 2);
+			// logMessage("Got output <goOutput>", 2);
 			res = readTextValueString(#File, goOutput);
 		} catch e : {
 			res = errorFile("Parser failed: <e>");
@@ -145,4 +145,14 @@ public System loadGoFiles(loc l, bool addLocationAnnotations = true, set[str] ex
 	}
 
 	return loadGoFilesInternal(l);
+}
+
+public System patchSystem(System pt, bool addLocationAnnotations = true) {
+	for (l <- pt.files, pt.files[l] is errorFile) {
+		newAttempt = loadGoFile(l, addLocationAnnotations=addLocationAnnotations);
+		if (! (newAttempt is errorFile) ) {
+			pt.files[l] = newAttempt;
+		}
+	}
+	return pt;
 }
