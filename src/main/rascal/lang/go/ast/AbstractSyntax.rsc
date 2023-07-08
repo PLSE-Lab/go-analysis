@@ -49,7 +49,7 @@ data Expr(loc at=|unknown:///|)
     | indexExpr(Expr expr, Expr index)
     | indexListExpr(Expr expr, list[Expr] indexes)
     | sliceExpr(Expr expr, OptionExpr low, OptionExpr high, OptionExpr max, bool threeIndex)
-    | typeAssertExpr(Expr expr, Expr assertedType)
+    | typeAssertExpr(Expr expr, OptionExpr assertedType)
     | callExpr(Expr fun, list[Expr] args, bool hasEllipses)
     | starExpr(Expr expr)
     | unaryExpr(Expr expr, Op operator)
@@ -76,6 +76,7 @@ data AssignOp
     = addAssign() | subAssign() | mulAssign() | quoAssign() | remAssign()
     | andAssign() | orAssign() | xorAssign() | shiftLeftAssign()
     | shiftRightAssign() | andNotAssign() | defineAssign() | assign()
+    | noKey()
     | unknownAssign(str unknownOp)
     ;
 
