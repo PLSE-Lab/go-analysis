@@ -7,7 +7,7 @@ data File(loc at=|unknown:///|)
 
 data Decl(loc at=|unknown:///|)
     = genDecl(DeclType declType, list[Spec] decls)
-    | funDecl(str name, list[Field] receivers, Expr funType, Stmt body)
+    | funDecl(str name, list[Field] receivers, Expr funType, OptionStmt body)
     ;
 
 data Spec(loc at=|unknown:///|)
@@ -125,12 +125,12 @@ data CommClause(loc at=|unknown:///|)
     | invalidCommClause()
     ;
 
-data CommSelector
+data CommSelector(loc at=|unknown:///|)
     = regularComm(Stmt sendOrReceive)
     | defaultComm()
     ;
 
-data BasicLiteral
+data BasicLiteral(loc at=|unknown:///|)
     = literalInt(int theInt)
     | literalFloat(real theFloat)
     | literalImaginary(real theFloat, real imaginaryPart)
@@ -144,7 +144,7 @@ data OptionBasicLiteral
     | noLiteral()
     ;
 
-data Field
+data Field(loc at=|unknown:///|)
     = field(list[str] names, OptionExpr fieldType, OptionBasicLiteral fieldTag)
     ;
 
