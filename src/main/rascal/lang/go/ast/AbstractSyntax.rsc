@@ -1,63 +1,154 @@
 module lang::go::ast::AbstractSyntax
 
 data File(loc at=|unknown:///|)
-    = file(str packageName, list[Decl] decls, list[genDecl], list[ImportSpec] imports)
+    = file(str packageName, list[Decl] decls)
     | errorFile(str err)
     ;
 
 data Decl(loc at=|unknown:///|)
-    = genDecl(str tok) // Need to define the actual decl constructors
-    | Func(str name, list[str] body);
-//---------------------------------------------------------------------------------
+    = genDecl(DeclType declType, list[Spec] decls)
+    | funDecl(str name, list[Field] receivers, Expr funType, Stmt body)
+    ;
 
-data ImportSpec(loc at=|unknown:///|)
-    = ImportSpec(str name); // Need to define the actual import specs
+data Spec(loc at=|unknown:///|)
+    = importSpec(OptionalName importName, BasicLiteral importPath)
+    | valueSpec(list[str] names, OptionExpr valueType, list[Expr] values)
+    | typeSpec(str typeName, list[Field] typeParams, Expr \type)
+    | unknownSpec()
+    ;
 
-//---------------------------------------------------------------------------------
 data Stmt(loc at=|unknown:///|)
-    = emptyStmt()
-    | labeledStmt(str label)
-    | exprStmt(str e)
-    | sendStmt(str expr1, str expr2)
-    | incDecStmt(str tok, expr)
-    | assignStmt(str left, str right)    
-    | goStmt(str call)
-    | deferStmt(str call)  
-    | returnStmt(str result)
-    | branchStmt(str tok, str label)
-    | blockStmt(str stmts)
-    | ifStmt(str ifStmt, str expr, list[str] block, str elseStmt)
-    | caseClause(list[str] stmts, list[str] exprs)
-    | typeSwitchstmt(str init, str assign, list[str] block)    
-    | commClause(str comm, list[str] stmts)
-    | selectStmt(list[str] block)
-    | switchStmt(str init, str t, list[str] block)
-    | forStmt(str init, str cond, str post, list[str] block)    
-    | rangeStmt(str key, str val, str x, list[str] block);    // val = value
-
-// stmts are done
-// ---------------------------------------------------------------------
+    = declStmt(Decl decl)
+    | emptyStmt()
+    | labeledStmt(Label label, Stmt stmt)
+    | exprStmt(Expr expr)
+    | sendStmt(Expr channel, Expr val)
+    | incDecStmt(Op op, Expr expr)
+    | assignStmt(list[Expr] targets, list[Expr] values, AssignOp assignOp)    
+    | goStmt(Expr expr)
+    | deferStmt(Expr expr)  
+    | returnStmt(list[Expr] values)
+    | branchStmt(BranchType branchType, Label label)
+    | blockStmt(list[Stmt] stmts)
+    | ifStmt(OptionStmt initStmtOpt, Expr cond, Stmt body, OptionStmt elseStmtOpt)
+    | switchStmt(OptionStmt initOpt, OptionExpr tagOpt, list[CaseClause] cases)
+    | typeSwitchStmt(OptionStmt initOpt, Stmt assign, list[CaseClause] cases)    
+    | selectStmt(list[CommClause] clauses)
+    | forStmt(OptionStmt initStmtOpt, OptionExpr condExprOpt, OptionStmt postStmtOpt, Stmt body)    
+    | rangeStmt(OptionExpr keyOpt, OptionExpr valOpt, AssignOp assignOp, Expr rangeExpr, Stmt body)
+    | unknownStmt(str unknownStmt)
+    ;
 
 data Expr(loc at=|unknown:///|)
     = ident(str name)  
-    | ellipsis(str elt)
-    | basicLit(str val)
-    | funcLit(list[str] body)
-    | compositeLit(str types, list[str] elts)
-    | ParenExpr(str x)
-    | selectorExpr(str x)
-    | indexExpr(str x, str index)
-    | indexListExpr(str x, list[str] indices) 
-    | sliceExpr(str x, str low, str high, str max)
-    | typeAssertExpr(str x, str types)
-    | callExpr(str fun, list[str] args)
-    | starExpr(str x)
-    | unaryExpr(str x, str tok)
-    | binaryExpr(str x, str tok, str y)
-    | keyValueExpr(str key, str val)
-    | arrayType(str lens, str elt)
-    | structType()
-    | funcType()
-    | interfaceType()
-    | mapType(str key, str val)
-    | chanType();  
+    | ellipsis(OptionExpr elementType)
+    | basicLit(BasicLiteral literalValue)
+    | funcLit(Expr funcType, Stmt body)
+    | compositeLit(OptionExpr literalType, list[Expr] elts, bool incomplete)
+    | selectorExpr(Expr expr, str selector)
+    | indexExpr(Expr expr, Expr index)
+    | indexListExpr(Expr expr, list[Expr] indexes)
+    | sliceExpr(Expr expr, OptionExpr low, OptionExpr high, OptionExpr max, bool threeIndex)
+    | typeAssertExpr(Expr expr, Expr assertedType)
+    | callExpr(Expr fun, list[Expr] args, bool hasEllipses)
+    | starExpr(Expr expr)
+    | unaryExpr(Expr expr, Op operator)
+    | binaryExpr(Expr left, Expr right, Op operator)
+    | keyValueExpr(Expr key, Expr val)
+    | arrayType(OptionExpr len, Expr element)
+    | structType(list[Field] fields)
+    | funcType(list[Field] typeParams, list[Field] params, list[Field] results)
+    | interfaceType(list[Field] methods)
+    | mapType(Expr key, Expr val)
+    | chanType(Expr val, bool isSend)
+    | unknownExpr(str unknownExpr)    
+    ;  
+
+data Op
+    = add() | sub() | mul() | quo() | rem() | and() | or() | xor()
+    | shiftLeft() | shiftRight() | andNot() | logicalAnd() | logicalOr()
+    | arrow() | inc() | dec() | equal() | lessThan() | greaterThan()
+    | not() | notEqual() | lessThanEq() | greaterThanEq()
+    | unknownOp(str unknownOp)
+    ;
+
+data AssignOp
+    = addAssign() | subAssign() | mulAssign() | quoAssign() | remAssign()
+    | andAssign() | orAssign() | xorAssign() | shiftLeftAssign()
+    | shiftRightAssign() | andNotAssign() | defineAssign() | assign()
+    | unknownAssign(str unknownOp)
+    ;
+
+data BranchType
+    = breakBranch()
+    | continueBranch()
+    | gotoBranch()
+    | fallthroughBranch()
+    | unknownBranch(str unknownBranch)
+    ;
+
+data DeclType
+    = importDecl()
+    | constDecl()
+    | typeDecl()
+    | varDecl()
+    | unknownDecl(str unknownDecl)
+    ;
+
+data Label(loc at=|unknown:///|)
+    = someLabel(str labelName)
+    | noLabel()
+    ;
+
+data OptionStmt
+    = someStmt(Stmt stmt)
+    | noStmt()
+    ;
+
+data OptionExpr
+    = someExpr(Expr expr)
+    | noExpr()
+    ;
+
+data CaseClause(loc at=|unknown:///|)
+    = caseClause(CaseSelector caseSelector, list[Stmt] stmts)
+    | invalidCaseClause()
+    ;
+
+data CaseSelector(loc at=|unknown:///|)
+    = regularCase(list[Expr] values)
+    | defaultCase()
+    ;
+
+data CommClause(loc at=|unknown:///|)
+    = commClause(CommSelector commSelector, list[Stmt] stmts)
+    | invalidCommClause()
+    ;
+
+data CommSelector
+    = regularComm(Stmt sendOrReceive)
+    | defaultComm()
+    ;
+
+data BasicLiteral
+    = literalInt(int theInt)
+    | literalFloat(real theFloat)
+    | literalImaginary(real theFloat, real imaginaryPart)
+    | literalChar(str theChar)
+    | literalString(str theString)
+    | unknownLiteral(str unknownValue)
+    ;
+
+data OptionBasicLiteral
+    = someLiteral(BasicLiteral literal)
+    | noLiteral()
+    ;
+
+data Field
+    = field(list[str] names, OptionExpr fieldType, OptionBasicLiteral fieldTag)
+    ;
+
+data OptionalName
+    = someName(str id)
+    | noName()
+    ;
