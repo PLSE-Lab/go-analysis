@@ -24,7 +24,24 @@ public void logMessage(str message, int level) {
 	}
 }
 
-public str executeGo(list[str] opts, loc cwd) {
+@doc{Run the binary version of the Go AST extractor}
+private str executeGoBinary(list[str] opts, loc cwd) {
+	str go2rascalBinLoc = (parserDir + go2rascalBin).path;
+	// logMessage("Execution options: <opts>", 2);
+  	PID pid = createProcess(go2rascalBinLoc, args=opts, workingDir=cwd);
+	str goOutput = readEntireStream(pid);
+	str goErr = readEntireErrStream(pid);
+	killProcess(pid);
+
+	if (trim(goErr) == "" || /Fatal error/ !:= goErr) {
+		return goOutput;
+	}
+	
+	throw IO("Error calling Go2Rascal binary: <goErr>");
+}
+
+@doc{Run the source version of the Go AST extractor}
+private str executeGo(list[str] opts, loc cwd) {
 	str goBinLoc = goLoc.path;
 	// logMessage("Execution options: <opts>", 2);
   	PID pid = createProcess(goBinLoc, args=opts, workingDir=cwd);
@@ -39,6 +56,7 @@ public str executeGo(list[str] opts, loc cwd) {
 	throw IO("Error calling Go: <goErr>");
 }
 
+@doc{Parse a Go file using the Go2Rascal system and return the AST}
 private File parseGoFile(loc f, list[str] opts, File error) {
 	loc parserDir = lang::go::config::Config::parserDir;
 	str goOutput = "";
@@ -47,7 +65,11 @@ private File parseGoFile(loc f, list[str] opts, File error) {
 		if (f.authority != "") {
 			filePath = f.authority + "/" + filePath;
 		}
-		goOutput = executeGo(["run", (parserDir + "go2rascal.go").path, "--filePath", "<filePath>"] + opts, parserDir);
+		if (runConverterBinary) {
+			goOutput = executeGoBinary(["--filePath", "<filePath>"] + opts, parserDir);
+		} else {
+			goOutput = executeGo(["run", (parserDir + go2rascalSrc).path, "--filePath", "<filePath>"] + opts, parserDir);
+		}
 	} catch _: {
 		return error; 
 	}
@@ -65,7 +87,7 @@ private File parseGoFile(loc f, list[str] opts, File error) {
 	return res;
 }
 
-@doc{Load a single Go file.}
+@doc{Load a single Go file}
 public File loadGoFile(loc l, bool addLocationAnnotations = true) throws AssertionFailed {
 	if (!exists(l)) return errorFile("Location <l> does not exist");
 	if (l.scheme notin {"file","home","project"}) return errorFile("Only file, home, and project locations are supported");
@@ -153,6 +175,14 @@ public System patchSystem(System pt, bool addLocationAnnotations = true) {
 		if (! (newAttempt is errorFile) ) {
 			pt.files[l] = newAttempt;
 		}
+	}
+	return pt;
+}
+
+public System rebuildFiles(System pt, set[loc] rebuildLocs, bool addLocationAnnotations = true) {
+	for (l <- rebuildLocs, l in pt.files<0>) {
+		newAttempt = loadGoFile(l, addLocationAnnotations=addLocationAnnotations);
+		pt.files[l] = newAttempt;
 	}
 	return pt;
 }
