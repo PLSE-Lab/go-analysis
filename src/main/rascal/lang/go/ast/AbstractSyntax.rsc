@@ -68,7 +68,7 @@ data Op
     = add() | sub() | mul() | quo() | rem() | and() | or() | xor()
     | shiftLeft() | shiftRight() | andNot() | logicalAnd() | logicalOr()
     | arrow() | inc() | dec() | equal() | lessThan() | greaterThan()
-    | not() | notEqual() | lessThanEq() | greaterThanEq()
+    | not() | notEqual() | lessThanEq() | greaterThanEq() | tilde()
     | unknownOp(str unknownOp)
     ;
 
