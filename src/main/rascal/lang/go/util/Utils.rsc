@@ -10,6 +10,7 @@ import String;
 import DateTime;
 import List;
 import util::ShellExec;
+import Set;
 
 @doc { 
 	Log level 0 => no logging;
@@ -185,4 +186,66 @@ public System rebuildFiles(System pt, set[loc] rebuildLocs, bool addLocationAnno
 		pt.files[l] = newAttempt;
 	}
 	return pt;
+}
+
+public void buildSystemBinary(str p, bool addLocationAnnotations = true, set[str] extensions = { "go" }) throws AssertionFailed {
+	pt = loadGoFiles(systemsDir + p, addLocationAnnotations=addLocationAnnotations, extensions=extensions);
+	writeBinaryValueFile(serializedDir + "parsed/<p>.pt", pt);
+}
+
+public void buildSystemBinaries(bool addLocationAnnotations = true, set[str] extensions = { "go" }, bool rebuildBinaries=false, set[str] toSkip={}) throws AssertionFailed {
+	for (l <- systemsDir.ls, isDirectory(l)) {
+		p = l.file;
+		if (p notin toSkip) {
+			if (!exists(serializedDir + "parsed/<p>.pt") || rebuildBinaries) {
+				logMessage("Building binary for <p>", 2);
+				pt = loadGoFiles(systemsDir + p, addLocationAnnotations=addLocationAnnotations, extensions=extensions);
+				writeBinaryValueFile(serializedDir + "parsed/<p>.pt", pt, compression=false);
+			}
+		}
+	}
+}
+
+public System loadBinary(str systemName) {
+	if (exists(serializedDir + "parsed/<systemName>.pt")) {
+		return readBinaryValueFile(#System, serializedDir + "parsed/<systemName>.pt");
+	}
+	throw IllegalArgument(systemName, "No serialized ASTs are available for system <systemName>.");
+}
+
+public rel[str systemName, loc fileLoc, File errorFile] collectErrorFiles(set[str] systems = { }) {
+	rel[str systemName, loc fileLoc, File errorFile] result = { };
+	if (size(systems) == 0) {
+		systems = { l.file | l <- systemsDir.ls, isDirectory(l)};
+	}
+	for (sysName <- systems, exists(serializedDir + "parsed/<sysName>.pt")) {
+		logMessage("Checking for error in system <sysName>", 2);
+		pt = loadBinary(sysName);
+		for (errorLoc <- errorFiles(pt)) {
+			result = result + < sysName, errorLoc, pt.files[errorLoc] >;
+		}
+	}
+	return result;
+}
+
+public void patchBinaries(set[str] systems = { }, bool addLocationAnnotations = true, set[str] extensions = { "go" }, bool rebuildBinaries=false, set[str] toSkip={}) throws AssertionFailed {
+	if (size(systems) == 0) {
+		systems = { l.file | l <- systemsDir.ls, isDirectory(l)};
+	}
+	for (sysName <- systems, exists(serializedDir + "parsed/<sysName>.pt")) {
+		pt = loadBinary(sysName);
+		fixed = false;
+		for (errorLoc <- errorFiles(pt)) {
+			f = loadGoFile(errorLoc, addLocationAnnotations=addLocationAnnotations);
+			if (!f is errorFile) {
+				pt.files[errorLoc] = f;
+				fixed = true;
+			}
+		}
+		if (fixed) {
+			logMessage("Fixed errors in <sysName>, rewriting serialized ASTs", 2);
+			writeBinaryValueFile(serializedDir + "parsed/<sysName>.pt", pt, compression=false);
+			fixed = false;
+		}
+	}
 }
