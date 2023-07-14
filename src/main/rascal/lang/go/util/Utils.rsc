@@ -170,6 +170,7 @@ public System loadGoFiles(loc l, bool addLocationAnnotations = true, set[str] ex
 	return loadGoFilesInternal(l);
 }
 
+@doc{Try to re-parse files that did not parse correctly on an earlier run.}
 public System patchSystem(System pt, bool addLocationAnnotations = true) {
 	for (l <- pt.files, pt.files[l] is errorFile) {
 		newAttempt = loadGoFile(l, addLocationAnnotations=addLocationAnnotations);
@@ -180,6 +181,7 @@ public System patchSystem(System pt, bool addLocationAnnotations = true) {
 	return pt;
 }
 
+@doc{Rebuild specific files in the system.}
 public System rebuildFiles(System pt, set[loc] rebuildLocs, bool addLocationAnnotations = true) {
 	for (l <- rebuildLocs, l in pt.files<0>) {
 		newAttempt = loadGoFile(l, addLocationAnnotations=addLocationAnnotations);
@@ -188,11 +190,19 @@ public System rebuildFiles(System pt, set[loc] rebuildLocs, bool addLocationAnno
 	return pt;
 }
 
+@doc{Extract the ASTs for a system and serialize them.}
 public void buildSystemBinary(str p, bool addLocationAnnotations = true, set[str] extensions = { "go" }) throws AssertionFailed {
 	pt = loadGoFiles(systemsDir + p, addLocationAnnotations=addLocationAnnotations, extensions=extensions);
 	writeBinaryValueFile(serializedDir + "parsed/<p>.pt", pt);
 }
 
+@doc{Extract the ASTs for a system with a version tag and serialize them.}
+public void buildVersionedSystemBinary(str p, str v, bool addLocationAnnotations = true, set[str] extensions = { "go" }) throws AssertionFailed {
+	pt = loadGoFiles(systemsDir + p, addLocationAnnotations=addLocationAnnotations, extensions=extensions);
+	writeBinaryValueFile(serializedDir + "parsed/<p>-<v>.pt", pt);
+}
+
+@doc{Extract the ASTs for all systems in the system directory and serialize them.}
 public void buildSystemBinaries(bool addLocationAnnotations = true, set[str] extensions = { "go" }, bool rebuildBinaries=false, set[str] toSkip={}) throws AssertionFailed {
 	for (l <- systemsDir.ls, isDirectory(l)) {
 		p = l.file;
@@ -206,6 +216,7 @@ public void buildSystemBinaries(bool addLocationAnnotations = true, set[str] ext
 	}
 }
 
+@doc{Load the ASTs for a system from serialized form.}
 public System loadBinary(str systemName) {
 	if (exists(serializedDir + "parsed/<systemName>.pt")) {
 		return readBinaryValueFile(#System, serializedDir + "parsed/<systemName>.pt");
@@ -213,10 +224,19 @@ public System loadBinary(str systemName) {
 	throw IllegalArgument(systemName, "No serialized ASTs are available for system <systemName>.");
 }
 
+@doc{Load the ASTs for a system and version from serialized form.}
+public System loadVersionedBinary(str systemName, str version) {
+	if (exists(serializedDir + "parsed/<systemName>-<version>.pt")) {
+		return readBinaryValueFile(#System, serializedDir + "parsed/<systemName>-<version>.pt");
+	}
+	throw IllegalArgument(systemName, "No serialized ASTs are available for system <systemName> at version <version>.");
+}
+
+@doc{Return info about all files, in all systems, that could not be loaded.}
 public rel[str systemName, loc fileLoc, File errorFile] collectErrorFiles(set[str] systems = { }) {
 	rel[str systemName, loc fileLoc, File errorFile] result = { };
 	if (size(systems) == 0) {
-		systems = { l.file | l <- systemsDir.ls, isDirectory(l)};
+		systems = getSystemNames();
 	}
 	for (sysName <- systems, exists(serializedDir + "parsed/<sysName>.pt")) {
 		logMessage("Checking for error in system <sysName>", 2);
@@ -228,9 +248,10 @@ public rel[str systemName, loc fileLoc, File errorFile] collectErrorFiles(set[st
 	return result;
 }
 
+@doc{Try to fix files across multiple systems}
 public void patchBinaries(set[str] systems = { }, bool addLocationAnnotations = true, set[str] extensions = { "go" }, bool rebuildBinaries=false, set[str] toSkip={}) throws AssertionFailed {
 	if (size(systems) == 0) {
-		systems = { l.file | l <- systemsDir.ls, isDirectory(l)};
+		systems = getSystemNames();
 	}
 	for (sysName <- systems, exists(serializedDir + "parsed/<sysName>.pt")) {
 		pt = loadBinary(sysName);
@@ -249,3 +270,6 @@ public void patchBinaries(set[str] systems = { }, bool addLocationAnnotations = 
 		}
 	}
 }
+
+@doc{Get the names of all the systems in the systems directory}
+public set[str] getSystemNames() = { l.file | l <- systemsDir.ls, isDirectory(l) };
