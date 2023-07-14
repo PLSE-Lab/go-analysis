@@ -17,7 +17,7 @@ module lang::go::config::Config
 public loc goLoc = |file:///opt/homebrew/bin/go|;
 
 @doc{The base install location for the go2rascal project}
-public loc parserDir = |file:///Users/hillsma/Projects/go-analysis/go2rascal|;
+public loc parserDir = |file:///Users/some-user/go-analysis/go2rascal|;
 
 @doc{The source file containing the go2rascal code}
 public str go2rascalSrc = "go2rascal.go";
@@ -33,6 +33,15 @@ public str go2rascalBin = "go2rascal";
 	}
 }
 public int logLevel = 2;
+
+@doc{Run the go2rascal binary (true), or run from source? (false)}
+public bool runConverterBinary = true;
+
+@doc{The location of the systems being investigated}
+public loc systemsDir = |file:///Users/some-user/GoAnalysis/systems|;
+
+@doc{The location where serialized information can be stored}
+public loc serializedDir = |file:///Users/some-user/GoAnalysis/serialized|;
 ```
 
 You need to have Go installed somewhere on your computer. The `goLoc` variable holds the location of this executable. If you use a Mac with Homebrew this should work without modification. Otherwise, you will want to set this to the location on your own computer.
@@ -41,7 +50,11 @@ The variable `parserDir` is set to the location of the go2rascal project mention
 
 The `logLevel` determines which log messages you will see. It's generally useful to leave it at `2`, but you can set it to `0` if you do not want to see any messages.
 
-# Loading a Go file into Rascal
+`runConverterBinary` says whether to run the source version of go2rascal or the binary version. If you want to run the binary version, you need to compile it first. We recommend running the binary, though, since it's much faster (not noticeable on a single file, but noticeable across an entire system with many files). The source version is better to use while updating the AST format on either side, since it allows for testing without recompilation.
+
+`systemsDir` indicates the directory that contains the systems to analyze. Go AiR includes functionality for working with all of the systems at once, e.g., to parse all the files in all systems and save each system into its own serialized binary. These serialized versions are put into `serializedDir`.
+
+# Loading a Go file or system into Rascal
 
 With the configuration done, you can load a Go file into Rascal. A single file is represented using the `File` AST type. To load it, you should load the modules for utilities and for the AST first:
 
@@ -71,6 +84,3 @@ accessed as `mySystem.files`.
 
 Note that both `loadGoFile` and `loadGoFiles` have an optional keyword parameter `addLocationAnnotations`. Setting this to `false`, e.g., `loadGoFile(|file:///tmp/sample.go|, addLocationAnnotations=false)` will generate an AST that does not include location information. Otherwise, each AST node includes an `at` field that returns the location in the source code that is related to the AST node. Adding location information is recommended, both for code querying and for analyses that may need this information. 
 
-# Coming Soon
-
-We are currently adding AST types, and will also add functionality that will allow you to load an entire Go system into a variable of the `System` type, as defined in `lang::go::ast::System`.
