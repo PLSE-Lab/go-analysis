@@ -19,6 +19,12 @@ public loc goLoc = |file:///opt/homebrew/bin/go|;
 @doc{The base install location for the go2rascal project}
 public loc parserDir = |file:///Users/hillsma/Projects/go-analysis/go2rascal|;
 
+@doc{The source file containing the go2rascal code}
+public str go2rascalSrc = "go2rascal.go";
+
+@doc{The binary for the go2rascal program}
+public str go2rascalBin = "go2rascal";
+
 @doc{Debugging options
 	@logLevel {
 		Log level 0 => no logging;

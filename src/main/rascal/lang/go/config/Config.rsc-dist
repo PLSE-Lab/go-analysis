@@ -23,3 +23,9 @@ public int logLevel = 2;
 
 @doc{Run the go2rascal binary (true), or run from source? (false)}
 public bool runConverterBinary = true;
+
+@doc{The location of the systems being investigated}
+public loc systemsDir = |file:///Users/your-user-name/GoAnalysis/systems|;
+
+@doc{The location where serialized information can be stored}
+public loc serializedDir = |file:///Users/your-user-name/GoAnalysis/serialized|;
