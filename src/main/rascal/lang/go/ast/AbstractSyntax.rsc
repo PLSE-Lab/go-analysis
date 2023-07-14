@@ -60,9 +60,16 @@ data Expr(loc at=|unknown:///|)
     | funcType(list[Field] typeParams, list[Field] params, list[Field] results)
     | interfaceType(list[Field] methods)
     | mapType(Expr key, Expr val)
-    | chanType(Expr val, bool isSend)
+    | chanType(Expr val, ChannelDirection direction)
     | unknownExpr(str unknownExpr)    
     ;  
+
+data ChannelDirection
+    = send()
+    | receive()
+    | bidirectional()
+    | unknown()
+    ;
 
 data Op
     = add() | sub() | mul() | quo() | rem() | and() | or() | xor()
