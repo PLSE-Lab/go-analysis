@@ -61,7 +61,11 @@ With the configuration done, you can load a Go file into Rascal. A single file i
 ```
 rascal>import lang::go::ast::AbstractSyntax;
 ok
+rascal>import lang::go::ast::System;
+ok
 rascal>import lang::go::util::Utils;
+ok
+rascal>import lang::go::config::Config;
 ok
 ```
 
@@ -84,3 +88,46 @@ accessed as `mySystem.files`.
 
 Note that both `loadGoFile` and `loadGoFiles` have an optional keyword parameter `addLocationAnnotations`. Setting this to `false`, e.g., `loadGoFile(|file:///tmp/sample.go|, addLocationAnnotations=false)` will generate an AST that does not include location information. Otherwise, each AST node includes an `at` field that returns the location in the source code that is related to the AST node. Adding location information is recommended, both for code querying and for analyses that may need this information. 
 
+# Building a Serialized Version of a System
+
+If your system is in the `systemsDir`, you can parse it and save a serialized version to disk using the `buildSystemBinary` function, like:
+
+```
+// With location annotations
+buildSystemBinary("docker-ce");
+
+// Without location annotations
+buildSystemBinary("docker-ce", addLocationAnnotations=false);
+```
+
+You can also build all the systems in the `systemsDir`:
+
+```
+buildSystemBinaries();
+```
+
+Once built, the ASTs for a system can be loaded directly, without having to parse the source for the system again:
+
+```
+docker = loadBinary("docker-ce");
+```
+
+# Building Specific Releases of a System
+
+If your system is based on a Git repo, you can build a specific version, based on the tag marking the release. 
+
+```
+import util::git::Git;
+dockerLoc = systemsDir + "docker-ce-full";
+openLocalRepository(dockerLoc);
+switchToTag(dockerLoc, "v19.03.8");
+buildVersionedSystemBinary("docker-ce-full", "v19.03.8");
+```
+
+Once this is done, this version of the system can be loaded without needing to be parsed again:
+
+```
+docker = loadVersionedBinary("docker-ce-full", "v19.03.8");
+```
+
+Note that we are simplifying this so it will be easier to do as a single function. This example will be updated when that is complete.
