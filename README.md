@@ -8,7 +8,7 @@ A quick note: the framework should work regardless of how you are running Rascal
 
 # Getting Started
 
-To start, you will want to clone the project (please fork first if you want to contribute back!). You should also clone the go2rascal project, which provides support for parsing Go source files and projects and converting these into a Rascal AST format, based on the AST types defined here in `lang::go::ast::AbstractSyntax`.
+To start, you will want to clone the project (please fork first if you want to contribute back!). You should also clone the [go2rascal](https://github.com/PLSE-Lab/go2rascal) project, which provides support for parsing Go source files and projects and converting these into a Rascal AST format, based on the AST types defined here in `lang::go::ast::AbstractSyntax`.
 
 After cloning the project, you should copy the file /src/main/rascal/lang/go/config/Config.rsc-dist to just Config.rsc in the same directory. This will be loaded as module `lang::go::config::Config`. An example configuration is shown below:
 
