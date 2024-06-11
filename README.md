@@ -134,3 +134,10 @@ docker = loadVersionedBinary("docker-ce-full", "v19.03.8");
 ```
 
 Note that we are simplifying this so it will be easier to do as a single function. This example will be updated when that is complete.
+
+# Building the New Corpus
+
+The following changes were needed:
+* Remove bitnami-labs-sealed-secrets/vendor_jsonnet/kube-libsonnet/examples/wordpress/lib
+
+
