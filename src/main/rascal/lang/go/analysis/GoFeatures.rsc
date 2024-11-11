@@ -4,10 +4,13 @@ import lang::go::ast::AbstractSyntax;
 import lang::go::ast::System;
 import lang::go::util::Utils;
 import lang::go::config::Config;
+import lang::go::util::CLOC;
 
 import List;
 import Set;
 import ValueIO;
+
+import lang::csv::IO;
 
 public void buildCorpus(set[str] toBuild = {}, bool rebuildBinaries=false, set[str] toSkip = {}) {
     if (size(toBuild) > 0) {
@@ -1140,4 +1143,48 @@ public Features traverseFile(file(str _, list[Decl] decls)) {
     // functions defined just above.
     for (d <- decls) traverseDecl(d);
     return fileFeatures;
+}
+
+public map[loc, ClocResult] slocForCorpus() {
+    map[loc, ClocResult] result = ( );
+    for (sname <- getSystemNames()) {
+        logMessage("Computing SLOC for <sname>", 1);
+        l = systemsDir + sname;
+        cres = goLinesOfCode(l, clocLoc);
+        result[l] = cres;
+    }
+    return result;
+}
+
+public void saveSlocInfo(map[loc, ClocResult] results) {
+    writeBinaryValueFile(serializedDir + "clocinfo/go-cloc.bin", results);
+}
+
+public map[loc, ClocResult] loadSlocInfo() {
+    return readBinaryValueFile(#map[loc, ClocResult], serializedDir + "clocinfo/go-cloc.bin");
+}
+
+public ClocResult mergeClocResults(map[loc, ClocResult] results) {
+    // res = clocResult(0,0,0,0);
+    // for (l <- results) {
+    //     ClocResult cr = results[l];
+    //     logMessage("<cr>",1);
+    //     res.files += cr.files;
+    // }
+    // return res;
+    return ( clocResult(0,0,0,0) |
+             clocResult(it.files + results[l].files, 
+                it.blankLines + results[l].blankLines,
+                it.commentLines + results[l].commentLines,
+                it.sourceLines + results[l].sourceLines) |
+             l <- results );
+}
+
+public void saveClocResultsToCSV(map[loc, ClocResult] results, loc csvLoc) {
+    rel[str systemName, int files, int blankLines, int commentLines, int sourceLines] clocRel = { };
+    for (l <- results) {
+        clocRel = clocRel + < l.file, results[l].files, results[l].blankLines, results[l].commentLines, results[l].sourceLines >;
+    }
+    writeCSV(#rel[str systemName, int files, int blankLines, int commentLines, int sourceLines],
+        clocRel, csvLoc);
 }
