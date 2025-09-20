@@ -285,7 +285,7 @@ public Expr parseExpr(str exprText) {
 			goOutput = executeGo(["run", (parserDir + go2rascalSrc).path, "--expr", exprText], parserDir);
 		}
 	} catch _: {
-		return error; 
+		return unknownExpr(exprText); 
 	}
 
 	res = unknownExpr("Parser failed in unknown way");
