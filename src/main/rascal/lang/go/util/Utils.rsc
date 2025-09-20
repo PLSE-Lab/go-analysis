@@ -273,3 +273,30 @@ public void patchBinaries(set[str] systems = { }, bool addLocationAnnotations = 
 
 @doc{Get the names of all the systems in the systems directory}
 public set[str] getSystemNames() = { l.file | l <- systemsDir.ls, isDirectory(l) };
+
+@doc{Parse a single Go expression}
+public Expr parseExpr(str exprText) {
+	loc parserDir = lang::go::config::Config::parserDir;
+	str goOutput = "";
+	try {
+		if (runConverterBinary) {
+			goOutput = executeGoBinary(["--expr", exprText], parserDir);
+		} else {
+			goOutput = executeGo(["run", (parserDir + go2rascalSrc).path, "--expr", exprText], parserDir);
+		}
+	} catch _: {
+		return error; 
+	}
+
+	res = unknownExpr("Parser failed in unknown way");
+	if (trim(goOutput) != "") {
+		try { 
+			// logMessage("Got output <goOutput>", 2);
+			res = readTextValueString(#Expr, goOutput);
+		} catch e : {
+			res = unknownExpr("Parser failed: <e>");
+		}			
+	}
+
+	return res;	
+}
