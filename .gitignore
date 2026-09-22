@@ -1,5 +1,4 @@
 .idea
-Config.rsc
 
 # Files generated for Rascal resources
 src/*.rsc
@@ -26,3 +25,6 @@ target
 
 # VSCode
 .vscode
+
+# Config file
+config.yaml
