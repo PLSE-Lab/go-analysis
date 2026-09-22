@@ -10,40 +10,43 @@ A quick note: the framework should work regardless of how you are running Rascal
 
 To start, you will want to clone the project (please fork first if you want to contribute back!). You should also clone the [go2rascal](https://github.com/PLSE-Lab/go2rascal) project, which provides support for parsing Go source files and projects and converting these into a Rascal AST format, based on the AST types defined here in `lang::go::ast::AbstractSyntax`.
 
-After cloning the project, you should copy the file /src/main/rascal/lang/go/config/Config.rsc-dist to just Config.rsc in the same directory. This will be loaded as module `lang::go::config::Config`. An example configuration is shown below:
+After cloning the project, you should create a configuration file under /src/main/resources named config.yaml. An example config file is included below, you should be able to just edit the settings for your own environment:
 
 ```
-module lang::go::config::Config
+# Main Go Analysis configuration settings.
+config:
+  base:
+    configBase:
+      # The location of the Go executable in Rascal location format.
+      goLoc: "file:///opt/homebrew/bin/go"
+      # The debugging level for log statements.
+      # 0 means disable logging
+      # 1 means typical logging statements
+      # 2 means debug-level logging
+      logLevel: 2
+      # The location of the cloc tool, used for source lines of code,
+      # in Rascal location format.
+      clocLoc: "file:///opt/homebrew/bin/cloc"
 
-@doc{The location of the Go executable}
-public loc goLoc = |file:///opt/homebrew/bin/go|;
+  # Settings related to parsing Go code.
+  parsing:
+    configParsing:
+      # The directory for to Go to Rascal parser files
+      parserWorkingDir: "file:///Users/hillsma/Projects/go-analysis/go2rascal"
+      # The source file for the parser if we want to run the source directly
+      go2rascalSrc: "go2rascal.go"
+      # The binary file for the parser if we want to run the binary directly
+      go2rascalBin: "go2rascal"
+      # Do we want to run the binary?
+      runConverterBinary: true
 
-@doc{The base install location for the go2rascal project}
-public loc parserDir = |file:///Users/some-user/go-analysis/go2rascal|;
-
-@doc{The source file containing the go2rascal code}
-public str go2rascalSrc = "go2rascal.go";
-
-@doc{The binary for the go2rascal program}
-public str go2rascalBin = "go2rascal";
-
-@doc{Debugging options
-	@logLevel {
-		Log level 0 => no logging;
-		Log level 1 => main logging;
-		Log level 2 => debug logging;
-	}
-}
-public int logLevel = 2;
-
-@doc{Run the go2rascal binary (true), or run from source? (false)}
-public bool runConverterBinary = true;
-
-@doc{The location of the systems being investigated}
-public loc systemsDir = |file:///Users/some-user/GoAnalysis/systems|;
-
-@doc{The location where serialized information can be stored}
-public loc serializedDir = |file:///Users/some-user/GoAnalysis/serialized|;
+# Analysis-related settings.
+  analysis:
+    configAnalysis:
+      # The location of the systems being investigated
+      systemsDir: "file:///Users/hillsma/GoAnalysis/new-systems"
+      # The location where serialized information can be stored
+      serializedDir: "file:///Users/hillsma/GoAnalysis/serialized"
 ```
 
 You need to have Go installed somewhere on your computer. The `goLoc` variable holds the location of this executable. If you use a Mac with Homebrew this should work without modification. Otherwise, you will want to set this to the location on your own computer.
