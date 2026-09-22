@@ -61,7 +61,7 @@ public void computeCorpusFeatures() {
     for (sname <- getSystemNames()) {
         logMessage("Computing feature counts for system <sname>", 1);
         sf = computeSystemFeatures(sname);
-        writeBinaryValueFile(serializedDir + "features/<sname>.fmap", sf);
+        writeBinaryValueFile(getConfig().analysis.serializedDir + "features/<sname>.fmap", sf);
     }    
 }
 
@@ -1149,19 +1149,19 @@ public map[loc, ClocResult] slocForCorpus() {
     map[loc, ClocResult] result = ( );
     for (sname <- getSystemNames()) {
         logMessage("Computing SLOC for <sname>", 1);
-        l = systemsDir + sname;
-        cres = goLinesOfCode(l, clocLoc);
+        l = getConfig().analysis.systemsDir + sname;
+        cres = goLinesOfCode(l, getConfig().base.clocLoc);
         result[l] = cres;
     }
     return result;
 }
 
 public void saveSlocInfo(map[loc, ClocResult] results) {
-    writeBinaryValueFile(serializedDir + "clocinfo/go-cloc.bin", results);
+    writeBinaryValueFile(getConfig().analysis.serializedDir + "clocinfo/go-cloc.bin", results);
 }
 
 public map[loc, ClocResult] loadSlocInfo() {
-    return readBinaryValueFile(#map[loc, ClocResult], serializedDir + "clocinfo/go-cloc.bin");
+    return readBinaryValueFile(#map[loc, ClocResult], getConfig().analysis.serializedDir + "clocinfo/go-cloc.bin");
 }
 
 public ClocResult mergeClocResults(map[loc, ClocResult] results) {

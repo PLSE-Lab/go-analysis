@@ -18,7 +18,7 @@ import Set;
 	Log level 2 => debug logging;
 }
 public void logMessage(str message, int level) {
-	if (level <= logLevel) {
+	if (level <= getConfig().base.logLevel) {
 		//str date = printDate(now(), "Y-MM-dd HH:mm:ss");
 		//println("<date> :: <message>");
 		println("<now()> :: <message>");
@@ -27,7 +27,7 @@ public void logMessage(str message, int level) {
 
 @doc{Run the binary version of the Go AST extractor}
 private str executeGoBinary(list[str] opts, loc cwd) {
-	str go2rascalBinLoc = (parserDir + go2rascalBin).path;
+	str go2rascalBinLoc = (getConfig().parsing.parserWorkingDir + getConfig().parsing.go2rascalBin).path;
 	// logMessage("Execution options: <opts>", 2);
   	PID pid = createProcess(go2rascalBinLoc, args=opts, workingDir=cwd);
 	str goOutput = readEntireStream(pid);
@@ -43,7 +43,7 @@ private str executeGoBinary(list[str] opts, loc cwd) {
 
 @doc{Run the source version of the Go AST extractor}
 private str executeGo(list[str] opts, loc cwd) {
-	str goBinLoc = goLoc.path;
+	str goBinLoc = getConfig().base.goLoc.path;
 	// logMessage("Execution options: <opts>", 2);
   	PID pid = createProcess(goBinLoc, args=opts, workingDir=cwd);
 	str goOutput = readEntireStream(pid);
@@ -59,17 +59,17 @@ private str executeGo(list[str] opts, loc cwd) {
 
 @doc{Parse a Go file using the Go2Rascal system and return the AST}
 private File parseGoFile(loc f, list[str] opts, File error) {
-	loc parserDir = lang::go::config::Config::parserDir;
+	loc parserDir = getConfig().parsing.parserWorkingDir;
 	str goOutput = "";
 	try {
 		str filePath = f.path;
 		if (f.authority != "") {
 			filePath = f.authority + "/" + filePath;
 		}
-		if (runConverterBinary) {
+		if (getConfig().parsing.runConverterBinary) {
 			goOutput = executeGoBinary(["--filePath", "<filePath>"] + opts, parserDir);
 		} else {
-			goOutput = executeGo(["run", (parserDir + go2rascalSrc).path, "--filePath", "<filePath>"] + opts, parserDir);
+			goOutput = executeGo(["run", (parserDir + getConfig().parsing.go2rascalSrc).path, "--filePath", "<filePath>"] + opts, parserDir);
 		}
 	} catch _: {
 		return error; 
@@ -192,25 +192,25 @@ public System rebuildFiles(System pt, set[loc] rebuildLocs, bool addLocationAnno
 
 @doc{Extract the ASTs for a system and serialize them.}
 public void buildSystemBinary(str p, bool addLocationAnnotations = true, set[str] extensions = { "go" }) throws AssertionFailed {
-	pt = loadGoFiles(systemsDir + p, addLocationAnnotations=addLocationAnnotations, extensions=extensions);
-	writeBinaryValueFile(serializedDir + "parsed/<p>.pt", pt);
+	pt = loadGoFiles(getConfig().analysis.systemsDir + p, addLocationAnnotations=addLocationAnnotations, extensions=extensions);
+	writeBinaryValueFile(getConfig().analysis.serializedDir + "parsed/<p>.pt", pt);
 }
 
 @doc{Extract the ASTs for a system with a version tag and serialize them.}
 public void buildVersionedSystemBinary(str p, str v, bool addLocationAnnotations = true, set[str] extensions = { "go" }) throws AssertionFailed {
-	pt = loadGoFiles(systemsDir + p, addLocationAnnotations=addLocationAnnotations, extensions=extensions);
-	writeBinaryValueFile(serializedDir + "parsed/<p>-<v>.pt", pt);
+	pt = loadGoFiles(getConfig().analysis.systemsDir + p, addLocationAnnotations=addLocationAnnotations, extensions=extensions);
+	writeBinaryValueFile(getConfig().analysis.serializedDir + "parsed/<p>-<v>.pt", pt);
 }
 
 @doc{Extract the ASTs for all systems in the system directory and serialize them.}
 public void buildSystemBinaries(bool addLocationAnnotations = true, set[str] extensions = { "go" }, bool rebuildBinaries=false, set[str] toSkip={}) throws AssertionFailed {
-	for (l <- systemsDir.ls, isDirectory(l)) {
+	for (l <- getConfig().analysis.systemsDir.ls, isDirectory(l)) {
 		p = l.file;
 		if (p notin toSkip) {
-			if (!exists(serializedDir + "parsed/<p>.pt") || rebuildBinaries) {
+			if (!exists(getConfig().analysis.serializedDir + "parsed/<p>.pt") || rebuildBinaries) {
 				logMessage("Building binary for <p>", 2);
-				pt = loadGoFiles(systemsDir + p, addLocationAnnotations=addLocationAnnotations, extensions=extensions);
-				writeBinaryValueFile(serializedDir + "parsed/<p>.pt", pt, compression=false);
+				pt = loadGoFiles(getConfig().analysis.systemsDir + p, addLocationAnnotations=addLocationAnnotations, extensions=extensions);
+				writeBinaryValueFile(getConfig().analysis.serializedDir + "parsed/<p>.pt", pt, compression=false);
 			}
 		}
 	}
@@ -218,16 +218,16 @@ public void buildSystemBinaries(bool addLocationAnnotations = true, set[str] ext
 
 @doc{Load the ASTs for a system from serialized form.}
 public System loadBinary(str systemName) {
-	if (exists(serializedDir + "parsed/<systemName>.pt")) {
-		return readBinaryValueFile(#System, serializedDir + "parsed/<systemName>.pt");
+	if (exists(getConfig().analysis.serializedDir + "parsed/<systemName>.pt")) {
+		return readBinaryValueFile(#System, getConfig().analysis.serializedDir + "parsed/<systemName>.pt");
 	}
 	throw IllegalArgument(systemName, "No serialized ASTs are available for system <systemName>.");
 }
 
 @doc{Load the ASTs for a system and version from serialized form.}
 public System loadVersionedBinary(str systemName, str version) {
-	if (exists(serializedDir + "parsed/<systemName>-<version>.pt")) {
-		return readBinaryValueFile(#System, serializedDir + "parsed/<systemName>-<version>.pt");
+	if (exists(getConfig().analysis.serializedDir + "parsed/<systemName>-<version>.pt")) {
+		return readBinaryValueFile(#System, getConfig().analysis.serializedDir + "parsed/<systemName>-<version>.pt");
 	}
 	throw IllegalArgument(systemName, "No serialized ASTs are available for system <systemName> at version <version>.");
 }
@@ -238,7 +238,7 @@ public rel[str systemName, loc fileLoc, File errorFile] collectErrorFiles(set[st
 	if (size(systems) == 0) {
 		systems = getSystemNames();
 	}
-	for (sysName <- systems, exists(serializedDir + "parsed/<sysName>.pt")) {
+	for (sysName <- systems, exists(getConfig().analysis.serializedDir + "parsed/<sysName>.pt")) {
 		logMessage("Checking for error in system <sysName>", 2);
 		pt = loadBinary(sysName);
 		for (errorLoc <- errorFiles(pt)) {
@@ -253,7 +253,7 @@ public void patchBinaries(set[str] systems = { }, bool addLocationAnnotations = 
 	if (size(systems) == 0) {
 		systems = getSystemNames();
 	}
-	for (sysName <- systems, exists(serializedDir + "parsed/<sysName>.pt")) {
+	for (sysName <- systems, exists(getConfig().analysis.serializedDir + "parsed/<sysName>.pt")) {
 		pt = loadBinary(sysName);
 		fixed = false;
 		for (errorLoc <- errorFiles(pt)) {
@@ -265,11 +265,11 @@ public void patchBinaries(set[str] systems = { }, bool addLocationAnnotations = 
 		}
 		if (fixed) {
 			logMessage("Fixed errors in <sysName>, rewriting serialized ASTs", 2);
-			writeBinaryValueFile(serializedDir + "parsed/<sysName>.pt", pt, compression=false);
+			writeBinaryValueFile(getConfig().analysis.serializedDir + "parsed/<sysName>.pt", pt, compression=false);
 			fixed = false;
 		}
 	}
 }
 
 @doc{Get the names of all the systems in the systems directory}
-public set[str] getSystemNames() = { l.file | l <- systemsDir.ls, isDirectory(l) };
+public set[str] getSystemNames() = { l.file | l <- getConfig().analysis.systemsDir.ls, isDirectory(l) };

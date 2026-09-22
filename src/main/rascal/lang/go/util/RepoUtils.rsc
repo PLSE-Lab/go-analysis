@@ -8,11 +8,11 @@ import Exception;
 import IO;
 
 public void buildTags(str product) {
-    systemLoc = systemsDir + product;
+    systemLoc = getConfig().analysis.systemsDir + product;
 
     if (exists(systemLoc) && isDirectory(systemLoc)) {
         openLocalRepository(systemLoc);
-        tags = getTags(systemLoc);
+        tags = getTags(product);
         for (t <- tags) {
             switchToTag(systemLoc, t);
             buildVersionedSystemBinary(product, t, addLocationAnnotations=true);
@@ -23,7 +23,7 @@ public void buildTags(str product) {
 }
 
 public list[str] getTags(str product) {
-    systemLoc = systemsDir + product;
+    systemLoc = getConfig().analysis.systemsDir + product;
 
     if (exists(systemLoc) && isDirectory(systemLoc)) {
         openLocalRepository(systemLoc);
