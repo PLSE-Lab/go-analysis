@@ -277,13 +277,13 @@ public set[str] getSystemNames()
 
 @doc{Parse a single Go expression}
 public Expr parseExpr(str exprText) {
-	loc parserDir = lang::go::config::Config::parserDir;
+	loc parserDir = getConfig().parsing.parserWorkingDir;
 	str goOutput = "";
 	try {
-		if (runConverterBinary) {
+		if (getConfig().parsing.runConverterBinary) {
 			goOutput = executeGoBinary(["--expr", exprText], parserDir);
 		} else {
-			goOutput = executeGo(["run", (parserDir + go2rascalSrc).path, "--expr", exprText], parserDir);
+			goOutput = executeGo(["run", (parserDir + getConfig().parsing.go2rascalSrc).path, "--expr", exprText], parserDir);
 		}
 	} catch _: {
 		return unknownExpr(exprText); 
