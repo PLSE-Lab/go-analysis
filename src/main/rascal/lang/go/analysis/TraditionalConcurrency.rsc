@@ -150,31 +150,55 @@ public FeatureSummary computeFileSummary(File f) {
     // function. Note that this is not precise, since this is done on a
     // per-file level, leading to problems with names used in different
     // scopes with different types.
+    bool isWaitGroup(someExpr(selectorExpr(ident("sync"),"WaitGroup"))) = true;
+    bool isWaitGroup(someExpr(starExpr(selectorExpr(ident("sync"),"WaitGroup")))) = true;
+    default bool isWaitGroup(OptionExpr oe) = false;
+
+    bool isMutex(someExpr(selectorExpr(ident("sync"),"Mutex"))) = true;
+    bool isMutex(someExpr(starExpr(selectorExpr(ident("sync"),"Mutex")))) = true;
+    default bool isMutex(OptionExpr oe) = false;
+
+    bool isRWMutex(someExpr(selectorExpr(ident("sync"),"RWMutex"))) = true;
+    bool isRWMutex(someExpr(starExpr(selectorExpr(ident("sync"),"RWMutex")))) = true;
+    default bool isRWMutex(OptionExpr oe) = false;
+
+    bool isLocker(someExpr(selectorExpr(ident("sync"),"Locker"))) = true;
+    bool isLocker(someExpr(starExpr(selectorExpr(ident("sync"),"Locker")))) = true;
+    default bool isLocker(OptionExpr oe) = false;
+
+    bool isOnce(someExpr(selectorExpr(ident("sync"),"Once"))) = true;
+    bool isOnce(someExpr(starExpr(selectorExpr(ident("sync"),"Once")))) = true;
+    default bool isOnce(OptionExpr oe) = false;
+
+    bool isCond(someExpr(selectorExpr(ident("sync"),"Cond"))) = true;
+    bool isCond(someExpr(starExpr(selectorExpr(ident("sync"),"Cond")))) = true;
+    default bool isCond(OptionExpr oe) = false;
+
     visit(f) {
         case genDecl(varDecl(), decls): {
             for (d <- decls) {
                 // Find var declarations of type sync.WaitGroup
-                if (valueSpec(names,someExpr(selectorExpr(ident("sync"),"WaitGroup")),_) := d) {
+                if (valueSpec(names,oe,_) := d, isWaitGroup(oe)) {
                     featureDecls = featureDecls 
                         + { < d.at, featureDecl(d.at, n, waitGroupDecl())> | n <- names };
                 }
-                if (valueSpec(names,someExpr(selectorExpr(ident("sync"),"Mutex")),_) := d) {
+                if (valueSpec(names,oe,_) := d, isMutex(oe)) {
                     featureDecls = featureDecls 
                         + { < d.at, featureDecl(d.at, n, mutexDecl())> | n <- names };
                 }
-                if (valueSpec(names,someExpr(selectorExpr(ident("sync"),"RWMutex")),_) := d) {
+                if (valueSpec(names,oe,_) := d, isRWMutex(oe)) {
                     featureDecls = featureDecls 
                         + { < d.at, featureDecl(d.at, n, rwMutexDecl())> | n <- names };
                 }
-                if (valueSpec(names,someExpr(selectorExpr(ident("sync"),"Locker")),_) := d) {
+                if (valueSpec(names,oe,_) := d, isLocker(oe)) {
                     featureDecls = featureDecls 
                         + { < d.at, featureDecl(d.at, n, lockerDecl())> | n <- names };
                 }
-                if (valueSpec(names,someExpr(selectorExpr(ident("sync"),"Once")),_) := d) {
+                if (valueSpec(names,oe,_) := d, isOnce(oe)) {
                     featureDecls = featureDecls 
                         + { < d.at, featureDecl(d.at, n, onceDecl())> | n <- names };
                 }
-                if (valueSpec(names,someExpr(selectorExpr(ident("sync"),"Cond")),_) := d) {
+                if (valueSpec(names,oe,_) := d, isCond(oe)) {
                     featureDecls = featureDecls 
                         + { < d.at, featureDecl(d.at, n, condDecl())> | n <- names };
                 }
@@ -182,27 +206,27 @@ public FeatureSummary computeFileSummary(File f) {
         }
         case d:field(list[str] names, OptionExpr fieldType, OptionBasicLiteral fieldTag): {
             // Find var declarations of type sync.WaitGroup
-            if (someExpr(selectorExpr(ident("sync"),"WaitGroup")) := fieldType) {
+            if (isWaitGroup(fieldType)) {
                 featureDecls = featureDecls 
                     + { < d.at, featureDecl(d.at, n, waitGroupDecl())> | n <- names};
             }
-            if (someExpr(selectorExpr(ident("sync"),"Mutex")) := fieldType) {
+            if (isMutex(fieldType)) {
                 featureDecls = featureDecls 
                     + { < d.at, featureDecl(d.at, n, mutexDecl())> | n <- names};
             }
-            if (someExpr(selectorExpr(ident("sync"),"RWMutex")) := fieldType) {
+            if (isRWMutex(fieldType)) {
                 featureDecls = featureDecls 
                     + { < d.at, featureDecl(d.at, n, rwMutexDecl())> | n <- names};
             }
-            if (someExpr(selectorExpr(ident("sync"),"Locker")) := fieldType) {
+            if (isLocker(fieldType)) {
                 featureDecls = featureDecls 
                     + { < d.at, featureDecl(d.at, n, lockerDecl())> | n <- names};
             }
-            if (someExpr(selectorExpr(ident("sync"),"Once")) := fieldType) {
+            if (isOnce(fieldType)) {
                 featureDecls = featureDecls 
                     + { < d.at, featureDecl(d.at, n, onceDecl())> | n <- names};
             }
-            if (someExpr(selectorExpr(ident("sync"),"Cond")) := fieldType) {
+            if (isCond(fieldType)) {
                 featureDecls = featureDecls 
                     + { < d.at, featureDecl(d.at, n, condDecl())> | n <- names};
             }

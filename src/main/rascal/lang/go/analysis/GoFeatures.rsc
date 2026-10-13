@@ -1156,8 +1156,8 @@ public map[loc, ClocResult] slocForCorpus() {
     return result;
 }
 
-public void saveSlocInfo(map[loc, ClocResult] results) {
-    writeBinaryValueFile(getConfig().analysis.serializedDir + "clocinfo/go-cloc.bin", results);
+public void saveSlocInfo(map[loc, ClocResult] results, str clocfile = "go-cloc") {
+    writeBinaryValueFile(getConfig().analysis.serializedDir + "clocinfo/<clocfile>.bin", results);
 }
 
 public map[loc, ClocResult] loadSlocInfo() {
@@ -1182,8 +1182,9 @@ public ClocResult mergeClocResults(map[loc, ClocResult] results) {
 
 public void saveClocResultsToCSV(map[loc, ClocResult] results, loc csvLoc) {
     rel[str systemName, int files, int blankLines, int commentLines, int sourceLines] clocRel = { };
-    for (l <- results) {
-        clocRel = clocRel + < l.file, results[l].files, results[l].blankLines, results[l].commentLines, results[l].sourceLines >;
+    for (l <- results, results[l] is clocResult) {
+        ClocResult cr = results[l];
+        clocRel = clocRel + < l.file, cr.files, cr.blankLines, cr.commentLines, cr.sourceLines >;
     }
     writeCSV(#rel[str systemName, int files, int blankLines, int commentLines, int sourceLines],
         clocRel, csvLoc);
