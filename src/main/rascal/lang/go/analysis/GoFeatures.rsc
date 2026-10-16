@@ -9,6 +9,7 @@ import lang::go::util::CLOC;
 import List;
 import Set;
 import ValueIO;
+import IO;
 
 import lang::csv::IO;
 
@@ -57,11 +58,17 @@ public rel[str systemName, loc fileName, loc errorLoc, node errorNode] corpusErr
 }
 
 @doc{Compute system features for all systems in the corpus}
-public void computeCorpusFeatures() {
-    for (sname <- getSystemNames()) {
-        logMessage("Computing feature counts for system <sname>", 1);
-        sf = computeSystemFeatures(sname);
-        writeBinaryValueFile(getConfig().analysis.serializedDir + "features/<sname>.fmap", sf);
+public void computeCorpusFeatures(set[str] toBuild = {}, bool rebuildBinaries=false, set[str] toSkip = {}) {
+    if (size(toBuild) > 0) {
+        logMessage("Computing features for <size(toBuild)> systems", 1);
+        toSkip = toSkip + (getSystemNames() - toBuild);
+    }
+    for (sname <- getSystemNames(), sname notin toSkip) {
+        if (!exists(getConfig().analysis.serializedDir + "features/<sname>.fmap") || rebuildBinaries) {
+            logMessage("Computing feature counts for system <sname>", 1);
+            sf = computeSystemFeatures(sname);
+            writeBinaryValueFile(getConfig().analysis.serializedDir + "features/<sname>.fmap", sf);
+        }
     }    
 }
 
