@@ -8,74 +8,35 @@ import Set;
 import Map;
 import List;
 
+private list[str] featureDecls = ["waitGroupDecl", "condDecl", "onceDecl", "mutexDecl", "rwMutexDecl", "lockerDecl"];
+private list[str] waitGroupCalls = ["waitGroupDone", "waitGroupAdd", "waitGroupWait"];
+private list[str] mutexCalls = ["mutexLock", "mutexUnlock", "mutexTryLock"];
+private list[str] rwMutexCalls = ["rwMutexLock", "rwMutexUnlock", "rwMutexTryLock","rwMutexTryRLock", "rwMutexRLocker"];
+private list[str] lockerCalls = ["lockerLock", "lockerUnlock"];
+private list[str] condCalls = ["condLock", "condUnlock", "condWait","condSignal", "condBroadcast", "condNew"];
+private list[str] onceCalls = ["onceDo"];
+private list[str] unknownCalls = ["unknownDone", "unknownAdd", "unknownWait", "unknownLock", "unknownUnlock",
+    "unknownTryLock", "unknownRLock", "unknownRUnlock", "unknownTryRLock", "unknownRLocker", "unknownSignal",
+    "unknownBroadcast", "unknownDo"];
+private list[str] featureCalls = waitGroupCalls + mutexCalls + rwMutexCalls + 
+    lockerCalls + condCalls + onceCalls + unknownCalls;
+
 data FeatureCounts
-    = traditionalConcurrencyFeatures(
-        int waitGroupDecls, int condDecls, int onceDecls, int mutexDecls,
-        int rwMutexDecls, int lockerDecls, int waitGroupDone, int waitGroupAdd,
-        int waitGroupWait, int mutexLock, int mutexUnlock, int mutexTryLock,
-        int rwMutexLock, int rwMutexUnlock, int rwMutexTryLock,
-        int rwMutexTryRLock, int rwMutexRLocker, int lockerLock,
-        int lockerUnlock, int condLock, int condUnlock, int condWait,
-        int condSignal, int condBroadcast, int condNew, int onceDo,
-        int unknownDone, int unknownAdd, int unknownWait,
-        int unknownLock, int unknownUnlock, int unknownTryLock,
-        int unknownRLock, int unknownRUnlock, int unknownTryRLock,
-        int unknownRLocker, int unknownSignal, int unknownBroadcast,
-        int unknownDo
-    )
+    = traditionalFeatureCounts(
+        map[str feature, int count] declCounts, 
+        map[str feature, int count] callCounts,
+        map[str feature, int count] unknownCallCounts)
     ;
 
 data FeatureSummary
     = traditionalConcurrencySummary(
-        rel[loc,FeatureDecl] waitGroupDecls,
-        rel[loc,FeatureDecl] mutexDecls,
-        rel[loc,FeatureDecl] rwMutexDecls,
-        rel[loc,FeatureDecl] lockerDecls,
-        rel[loc,FeatureDecl] onceDecls,
-        rel[loc,FeatureDecl] condDecls,
-        rel[loc,Expr,str] waitGroupDoneCalls,
-        rel[loc,Expr,str] waitGroupAddCalls,
-        rel[loc,Expr,str] waitGroupWaitCalls,
-        rel[loc,Expr,str] condWaitCalls,
-        rel[loc,Expr,str] condLockCalls,
-        rel[loc,Expr,str] mutexLockCalls,
-        rel[loc,Expr,str] rwMutexLockCalls,
-        rel[loc,Expr,str] lockerLockCalls,
-        rel[loc,Expr,str] rwMutexRLockCalls,
-        rel[loc,Expr,str] condUnlockCalls,
-        rel[loc,Expr,str] mutexUnlockCalls,
-        rel[loc,Expr,str] rwMutexUnlockCalls,
-        rel[loc,Expr,str] lockerUnlockCalls,
-        rel[loc,Expr,str] rwMutexRUnlockCalls,
-        rel[loc,Expr,str] mutexTryLockCalls,
-        rel[loc,Expr,str] rwMutexTryLockCalls,
-        rel[loc,Expr,str] rwMutexTryRLockCalls,
-        rel[loc,Expr,str] rwMutexRLockerCalls,
-        rel[loc,Expr,str] condSignalCalls,
-        rel[loc,Expr,str] condBroadcastCalls,
-        rel[loc,Expr,str] onceDoCalls,
-        rel[loc,Expr,str] condNewCalls,
-        rel[loc,Expr] unknownDoneCalls,
-        rel[loc,Expr] unknownAddCalls,
-        rel[loc,Expr] unknownWaitCalls,
-        rel[loc,Expr] unknownLockCalls,
-        rel[loc,Expr] unknownRLockCalls,
-        rel[loc,Expr] unknownUnlockCalls,
-        rel[loc,Expr] unknownRUnlockCalls,
-        rel[loc,Expr] unknownTryLockCalls,
-        rel[loc,Expr] unknownTryRLockCalls,
-        rel[loc,Expr] unknownRLockerCalls,
-        rel[loc,Expr] unknownSignalCalls,
-        rel[loc,Expr] unknownBroadcastCalls,
-        rel[loc,Expr] unknownDoCalls
+        rel[str,loc,FeatureDecl] decls,
+        rel[str,loc,Expr,str] calls,
+        rel[str,loc,Expr] unknownCalls
     );
 
 public FeatureSummary createEmptyTraditionalConcurrencySummary()
-    = traditionalConcurrencySummary(
-        {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
-        {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
-        {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
-    );
+    = traditionalConcurrencySummary({}, {}, {});
 
 data FeatureDecl = featureDecl(loc at, str name, DeclType declType);
 
@@ -93,9 +54,11 @@ data DeclType
     with all numbers set at 0.
 }
 private FeatureCounts initTraditionalConcurrencyFeatures()
-    = traditionalConcurrencyFeatures(
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
+    = traditionalFeatureCounts( 
+        (f : 0 | f <- (featureDecls)),
+        (f : 0 | f <- (featureCalls - unknownCalls)),
+        (f : 0 | f <- (unknownCalls)) )
+    ;
 
 
 public Maybe[str] findFinalName(ident(str name)) = just(name);
@@ -104,45 +67,8 @@ public Maybe[str] findFinalName(starExpr(Expr expr)) = findFinalName(expr);
 public default Maybe[str] findFinalName(Expr e) = nothing();
 
 public FeatureSummary computeFileSummary(File f) {
-    rel[loc,FeatureDecl] featureDecls = { };
+    FeatureSummary fs = traditionalConcurrencySummary({}, {}, {});
     rel[str,DeclType] declsForName = { };
-    
-    rel[loc,Expr,str] waitGroupDoneCalls = { };
-    rel[loc,Expr,str] waitGroupAddCalls = { };
-    rel[loc,Expr,str] waitGroupWaitCalls = { };
-    rel[loc,Expr,str] condWaitCalls = { };
-    rel[loc,Expr,str] condLockCalls = { };
-    rel[loc,Expr,str] mutexLockCalls = { };
-    rel[loc,Expr,str] rwMutexLockCalls = { };
-    rel[loc,Expr,str] lockerLockCalls = { };
-    rel[loc,Expr,str] rwMutexRLockCalls = { };
-    rel[loc,Expr,str] condUnlockCalls = { };
-    rel[loc,Expr,str] mutexUnlockCalls = { };
-    rel[loc,Expr,str] rwMutexUnlockCalls = { };
-    rel[loc,Expr,str] lockerUnlockCalls = { };
-    rel[loc,Expr,str] rwMutexRUnlockCalls = { };
-    rel[loc,Expr,str] mutexTryLockCalls = { };
-    rel[loc,Expr,str] rwMutexTryLockCalls = { };
-    rel[loc,Expr,str] rwMutexTryRLockCalls = { };
-    rel[loc,Expr,str] rwMutexRLockerCalls = { };
-    rel[loc,Expr,str] condSignalCalls = { };
-    rel[loc,Expr,str] condBroadcastCalls = { };
-    rel[loc,Expr,str] onceDoCalls = { };
-    rel[loc,Expr,str] condNewCalls = { };
-
-    rel[loc,Expr] unknownDoneCalls = { };
-    rel[loc,Expr] unknownAddCalls = { };
-    rel[loc,Expr] unknownWaitCalls = { };
-    rel[loc,Expr] unknownLockCalls = { };
-    rel[loc,Expr] unknownRLockCalls = { };
-    rel[loc,Expr] unknownUnlockCalls = { };
-    rel[loc,Expr] unknownRUnlockCalls = { };
-    rel[loc,Expr] unknownTryLockCalls = { };
-    rel[loc,Expr] unknownTryRLockCalls = { };
-    rel[loc,Expr] unknownRLockerCalls = { };
-    rel[loc,Expr] unknownSignalCalls = { };
-    rel[loc,Expr] unknownBroadcastCalls = { };
-    rel[loc,Expr] unknownDoCalls = { };
     
     // First, extract all declarations of relevant features from the given
     // file. We need these below as a heuristic -- if we have declared wg as
@@ -173,77 +99,55 @@ public FeatureSummary computeFileSummary(File f) {
     bool isCond(someExpr(selectorExpr(ident("sync"),"Cond"))) = true;
     bool isCond(someExpr(starExpr(selectorExpr(ident("sync"),"Cond")))) = true;
     default bool isCond(OptionExpr oe) = false;
-
+        
     visit(f) {
         case genDecl(varDecl(), decls): {
-            for (d <- decls) {
-                // Find var declarations of type sync.WaitGroup
-                if (valueSpec(names,oe,_) := d, isWaitGroup(oe)) {
-                    featureDecls = featureDecls 
-                        + { < d.at, featureDecl(d.at, n, waitGroupDecl())> | n <- names };
-                }
-                if (valueSpec(names,oe,_) := d, isMutex(oe)) {
-                    featureDecls = featureDecls 
-                        + { < d.at, featureDecl(d.at, n, mutexDecl())> | n <- names };
-                }
-                if (valueSpec(names,oe,_) := d, isRWMutex(oe)) {
-                    featureDecls = featureDecls 
-                        + { < d.at, featureDecl(d.at, n, rwMutexDecl())> | n <- names };
-                }
-                if (valueSpec(names,oe,_) := d, isLocker(oe)) {
-                    featureDecls = featureDecls 
-                        + { < d.at, featureDecl(d.at, n, lockerDecl())> | n <- names };
-                }
-                if (valueSpec(names,oe,_) := d, isOnce(oe)) {
-                    featureDecls = featureDecls 
-                        + { < d.at, featureDecl(d.at, n, onceDecl())> | n <- names };
-                }
-                if (valueSpec(names,oe,_) := d, isCond(oe)) {
-                    featureDecls = featureDecls 
-                        + { < d.at, featureDecl(d.at, n, condDecl())> | n <- names };
+            for (d <- decls, valueSpec(names,oe,_) := d) {
+                if (isWaitGroup(oe)) {
+                    fs.decls += { < "waitGroupDecl", d.at, featureDecl(d.at, n, waitGroupDecl())> | n <- names };
+                } else if (isMutex(oe)) {
+                    fs.decls += { < "mutexDecl", d.at, featureDecl(d.at, n, mutexDecl())> | n <- names };
+                } else if (isRWMutex(oe)) {
+                    fs.decls += { < "rwMutexDecl", d.at, featureDecl(d.at, n, rwMutexDecl())> | n <- names };
+                } else if (isLocker(oe)) {
+                    fs.decls += { < "lockerDecl", d.at, featureDecl(d.at, n, lockerDecl())> | n <- names };
+                } else if (isOnce(oe)) {
+                    fs.decls += { < "onceDecl", d.at, featureDecl(d.at, n, onceDecl())> | n <- names };
+                } else if (isCond(oe)) {
+                    fs.decls += { < "condDecl", d.at, featureDecl(d.at, n, condDecl())> | n <- names };
                 }
             }
         }
-        case d:field(list[str] names, OptionExpr fieldType, OptionBasicLiteral fieldTag): {
-            // Find var declarations of type sync.WaitGroup
+
+        case d:field(list[str] names, OptionExpr fieldType, OptionBasicLiteral _): {
             if (isWaitGroup(fieldType)) {
-                featureDecls = featureDecls 
-                    + { < d.at, featureDecl(d.at, n, waitGroupDecl())> | n <- names};
-            }
-            if (isMutex(fieldType)) {
-                featureDecls = featureDecls 
-                    + { < d.at, featureDecl(d.at, n, mutexDecl())> | n <- names};
-            }
-            if (isRWMutex(fieldType)) {
-                featureDecls = featureDecls 
-                    + { < d.at, featureDecl(d.at, n, rwMutexDecl())> | n <- names};
-            }
-            if (isLocker(fieldType)) {
-                featureDecls = featureDecls 
-                    + { < d.at, featureDecl(d.at, n, lockerDecl())> | n <- names};
-            }
-            if (isOnce(fieldType)) {
-                featureDecls = featureDecls 
-                    + { < d.at, featureDecl(d.at, n, onceDecl())> | n <- names};
-            }
-            if (isCond(fieldType)) {
-                featureDecls = featureDecls 
-                    + { < d.at, featureDecl(d.at, n, condDecl())> | n <- names};
+                fs.decls += { < "waitGroupDecl", d.at, featureDecl(d.at, n, waitGroupDecl())> | n <- names};
+            } else if (isMutex(fieldType)) {
+                fs.decls += { < "mutexDecl", d.at, featureDecl(d.at, n, mutexDecl())> | n <- names};
+            } else if (isRWMutex(fieldType)) {
+                fs.decls += { < "rwMutexDecl", d.at, featureDecl(d.at, n, rwMutexDecl())> | n <- names};
+            } else if (isLocker(fieldType)) {
+                fs.decls += { < "lockerDecl", d.at, featureDecl(d.at, n, lockerDecl())> | n <- names};
+            } else if (isOnce(fieldType)) {
+                fs.decls += { < "onceDecl", d.at, featureDecl(d.at, n, onceDecl())> | n <- names};
+            } else if (isCond(fieldType)) {
+                fs.decls += { < "condDecl", d.at, featureDecl(d.at, n, condDecl())> | n <- names};
             }
         }
-        case a:assignStmt(list[Expr] targets, list[Expr] values, AssignOp assignOp): {
+
+        case a:assignStmt(list[Expr] targets, list[Expr] values, AssignOp _): {
             if (size(targets) == size(values)) {
                 for (i <- index(targets)) {
                     if (callExpr(selectorExpr(ident("sync"), "NewCond"), [], false) := values[i]) {
                         if (just(n) := findFinalName(targets[i])) {
-                            featureDecls = featureDecls + < a.at, featureDecl(a.at, n, condDecl()) >;
+                            fs.decls += { < "condDecl", a.at, featureDecl(a.at, n, condDecl()) > };
                         }
                     }
                 }
             } else if (size(values) == 1 && size(targets) > 1) {
                 if (callExpr(selectorExpr(ident("sync"), "NewCond"), [], false) := values[0]) {
                     if (just(n) := findFinalName(targets[0])) {
-                        featureDecls = featureDecls + < a.at, featureDecl(a.at, n, condDecl()) >;
+                        fs.decls += { < "condDecl", a.at, featureDecl(a.at, n, condDecl()) > };
                     }
                 }
             }
@@ -252,226 +156,145 @@ public FeatureSummary computeFileSummary(File f) {
     
     // For each name, compute a relation mapping it to the types of declarations
     // for that name found in the file.
-    declsForName = { < fd.name, fd.declType > | fd <- featureDecls<1> };
+    declsForName = { < fd.name, fd.declType > | fd <- fs.decls<2> };
 
     // Now, find calls to concurrency-related functions. 
     visit(f) {
         case e:selectorExpr(Expr expr, "Done") : {
             if (just(n) := findFinalName(expr), { waitGroupDecl() } := declsForName[n]) {
-                waitGroupDoneCalls = waitGroupDoneCalls + < e.at, e, n >;
+                fs.calls += { < "waitGroupDone", e.at, e, n > };
             } else {
-                unknownDoneCalls = unknownDoneCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownDone", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "Add") : {
             if (just(n) := findFinalName(expr), { waitGroupDecl() } := declsForName[n]) {
-                waitGroupAddCalls = waitGroupAddCalls + < e.at, e, n >;
+                fs.calls += { < "waitGroupAdd", e.at, e, n > };
             } else {
-                unknownAddCalls = unknownAddCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownAdd", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "Wait") : {
             if (just(n) := findFinalName(expr), { waitGroupDecl() } := declsForName[n]) {
-                waitGroupAddCalls = waitGroupAddCalls + < e.at, e, n >;
+                fs.calls += { < "waitGroupWait", e.at, e, n > };
             } else if (just(n) := findFinalName(expr), { condDecl() } := declsForName[n]) {
-                condWaitCalls = condWaitCalls + < e.at, e, n >;
+                fs.calls += { < "condWait", e.at, e, n > };
             } else {
-                unknownWaitCalls = unknownWaitCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownWait", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "Lock") : {
             if (just(n) := findFinalName(expr), { condDecl() } := declsForName[n]) {
-                condLockCalls = condLockCalls + < e.at, e, n >;
+                fs.calls += { < "condLock", e.at, e, n > };
             } else if (just(n) := findFinalName(expr), { mutexDecl() } := declsForName[n]) {
-                mutexLockCalls = mutexLockCalls + < e.at, e, n >;
+                fs.calls += { < "mutexLock", e.at, e, n > };
             } else if (just(n) := findFinalName(expr), { rwMutexDecl() } := declsForName[n]) {
-                rwMutexLockCalls = rwMutexLockCalls + < e.at, e, n >;
+                fs.calls += { < "rwMutexLock", e.at, e, n > };
             } else if (just(n) := findFinalName(expr), { lockerDecl() } := declsForName[n]) {
-                lockerLockCalls = lockerLockCalls + < e.at, e, n >;
+                fs.calls += { < "lockerLock", e.at, e, n > };
             } else {
-                unknownLockCalls = unknownLockCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownLock", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "RLock") : {
             if (just(n) := findFinalName(expr), { rwMutexDecl() } := declsForName[n]) {
-                rwMutexRLockCalls = rwMutexRLockCalls + < e.at, e, n >;
+                fs.calls += { < "rwMutexRLock", e.at, e, n > };
             } else {
-                unknownRLockCalls = unknownRLockCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownRLock", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "Unlock") : {
             if (just(n) := findFinalName(expr), { condDecl() } := declsForName[n]) {
-                condUnlockCalls = condUnlockCalls + < e.at, e, n >;
+                fs.calls += { < "condUnlock", e.at, e, n > };
             } else if (just(n) := findFinalName(expr), { mutexDecl() } := declsForName[n]) {
-                mutexUnlockCalls = mutexUnlockCalls + < e.at, e, n >;
+                fs.calls += { < "mutexUnlock", e.at, e, n > };
             } else if (just(n) := findFinalName(expr), { rwMutexDecl() } := declsForName[n]) {
-                rwMutexUnlockCalls = rwMutexUnlockCalls + < e.at, e, n >;
+                fs.calls += { < "rwMutexUnlock", e.at, e, n > };
             } else if (just(n) := findFinalName(expr), { lockerDecl() } := declsForName[n]) {
-                lockerUnlockCalls = lockerUnlockCalls + < e.at, e, n >;
+                fs.calls += { < "lockerUnlock", e.at, e, n > };
             } else {
-                unknownUnlockCalls = unknownUnlockCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownUnlock", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "RUnlock") : {
             if (just(n) := findFinalName(expr), { rwMutexDecl() } := declsForName[n]) {
-                rwMutexRUnlockCalls = rwMutexRUnlockCalls + < e.at, e, n >;
+                fs.calls += { < "rwMutexUnlock", e.at, e, n > };
             } else {
-                unknownRUnlockCalls = unknownRUnlockCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownRUnlock", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "TryLock") : {
             if (just(n) := findFinalName(expr), { mutexDecl() } := declsForName[n]) {
-                mutexTryLockCalls = mutexTryLockCalls + < e.at, e, n >;
+                fs.calls += { < "mutexTryLock", e.at, e, n > };
             } else if (just(n) := findFinalName(expr), { rwMutexDecl() } := declsForName[n]) {
-                rwMutexTryLockCalls = rwMutexTryLockCalls + < e.at, e, n >;
+                fs.calls += { < "rwMutexTryLock", e.at, e, n > };
             } else {
-                unknownTryLockCalls = unknownTryLockCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownTryLock", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "TryRLock") : {
             if (just(n) := findFinalName(expr), { rwMutexDecl() } := declsForName[n]) {
-                rwMutexTryRLockCalls = rwMutexTryRLockCalls + < e.at, e, n >;
+                fs.calls += { < "rwMutexTryRLock", e.at, e, n > };
             } else {
-                unknownTryRLockCalls = unknownTryRLockCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownTryRLock", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "RLocker") : {
             if (just(n) := findFinalName(expr), { rwMutexDecl() } := declsForName[n]) {
-                rwMutexRLockerCalls = rwMutexRLockerCalls + < e.at, e, n >;
+                fs.calls += { < "rwMutexRLocker", e.at, e, n > };
             } else {
-                unknownRLockerCalls = unknownRLockerCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownRLocker", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "Signal") : {
             if (just(n) := findFinalName(expr), { condDecl() } := declsForName[n]) {
-                condSignalCalls = condSignalCalls + < e.at, e, n >;
+                fs.calls += { < "condSignal", e.at, e, n > };
             } else {
-                unknownSignalCalls = unknownSignalCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownSignal", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "Broadcast") : {
             if (just(n) := findFinalName(expr), { condDecl() } := declsForName[n]) {
-                condBroadcastCalls = condBroadcastCalls + < e.at, e, n >;
+                fs.calls += { < "condBroadcast", e.at, e, n > };
             } else {
-                unknownBroadcastCalls = unknownBroadcastCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownBroadcast", e.at, e > };
             }
         }
 
         case e:selectorExpr(Expr expr, "Do") : {
             if (just(n) := findFinalName(expr), { onceDecl() } := declsForName[n]) {
-                onceDoCalls = onceDoCalls + < e.at, e, n >;
+                fs.calls += { < "onceDo", e.at, e, n > };
             } else {
-                unknownDoCalls = unknownDoCalls + < e.at, e >;
+                fs.unknownCalls += { < "unknownDo", e.at, e > };
             }
         }
 
         case e:selectorExpr(ident("sync"), "NewCond") : {
-            condNewCalls = condNewCalls + < e.at, e, "sync" >;
+            fs.calls += { < "condNew", e.at, e, "sync" > };
         }
 }
 
     // Return final summary result
-    return traditionalConcurrencySummary(
-        { <l, fd > | <l, fd > <- featureDecls, fd.declType is waitGroupDecl },
-        { <l, fd > | <l, fd > <- featureDecls, fd.declType is mutexDecl },
-        { <l, fd > | <l, fd > <- featureDecls, fd.declType is rwMutexDecl },
-        { <l, fd > | <l, fd > <- featureDecls, fd.declType is lockerDecl },
-        { <l, fd > | <l, fd > <- featureDecls, fd.declType is onceDecl },
-        { <l, fd > | <l, fd > <- featureDecls, fd.declType is condDecl },
-        waitGroupDoneCalls,
-        waitGroupAddCalls,
-        waitGroupWaitCalls,
-        condWaitCalls,
-        condLockCalls,
-        mutexLockCalls,
-        rwMutexLockCalls,
-        lockerLockCalls,
-        rwMutexRLockCalls,
-        condUnlockCalls,
-        mutexUnlockCalls,
-        rwMutexUnlockCalls,
-        lockerUnlockCalls,
-        rwMutexRUnlockCalls,
-        mutexTryLockCalls,
-        rwMutexTryLockCalls,
-        rwMutexTryRLockCalls,
-        rwMutexRLockerCalls,
-        condSignalCalls,
-        condBroadcastCalls,
-        onceDoCalls,
-        condNewCalls,
-        unknownDoneCalls,
-        unknownAddCalls,
-        unknownWaitCalls,
-        unknownLockCalls,
-        unknownRLockCalls,
-        unknownUnlockCalls,
-        unknownRUnlockCalls,
-        unknownTryLockCalls,
-        unknownTryRLockCalls,
-        unknownRLockerCalls,
-        unknownSignalCalls,
-        unknownBroadcastCalls,
-        unknownDoCalls
-    );
+    return fs;
 }
 
-public FeatureSummary mergeSummaries(FeatureSummary fs1, FeatureSummary fs2) {
-    return traditionalConcurrencySummary(
-        fs1.waitGroupDecls + fs2.waitGroupDecls,
-        fs1.mutexDecls + fs2.mutexDecls,
-        fs1.rwMutexDecls + fs2.rwMutexDecls,
-        fs1.lockerDecls + fs2.lockerDecls,
-        fs1.onceDecls + fs2.onceDecls,
-        fs1.condDecls + fs2.condDecls,
-        fs1.waitGroupDoneCalls + fs2.waitGroupDoneCalls,
-        fs1.waitGroupAddCalls + fs2.waitGroupAddCalls,
-        fs1.waitGroupWaitCalls + fs2.waitGroupWaitCalls,
-        fs1.condWaitCalls + fs2.condWaitCalls,
-        fs1.condLockCalls + fs2.condLockCalls,
-        fs1.mutexLockCalls + fs2.mutexLockCalls,
-        fs1.rwMutexLockCalls + fs2.rwMutexLockCalls,
-        fs1.lockerLockCalls + fs2.lockerLockCalls,
-        fs1.rwMutexRLockCalls + fs2.rwMutexRLockCalls,
-        fs1.condUnlockCalls + fs2.condUnlockCalls,
-        fs1.mutexUnlockCalls + fs2.mutexUnlockCalls,
-        fs1.rwMutexUnlockCalls + fs2.rwMutexUnlockCalls,
-        fs1.lockerUnlockCalls + fs2.lockerUnlockCalls,
-        fs1.rwMutexRUnlockCalls + fs2.rwMutexRUnlockCalls,
-        fs1.mutexTryLockCalls + fs2.mutexTryLockCalls,
-        fs1.rwMutexTryLockCalls + fs2.rwMutexTryLockCalls,
-        fs1.rwMutexTryRLockCalls + fs2.rwMutexTryRLockCalls,
-        fs1.rwMutexRLockerCalls + fs2.rwMutexRLockerCalls,
-        fs1.condSignalCalls + fs2.condSignalCalls,
-        fs1.condBroadcastCalls + fs2.condBroadcastCalls,
-        fs1.onceDoCalls + fs2.onceDoCalls,
-        fs1.condNewCalls + fs2.condNewCalls,
-        fs1.unknownDoneCalls + fs2.unknownDoneCalls,
-        fs1.unknownAddCalls + fs2.unknownAddCalls,
-        fs1.unknownWaitCalls + fs2.unknownWaitCalls,
-        fs1.unknownLockCalls + fs2.unknownLockCalls,
-        fs1.unknownRLockCalls + fs2.unknownRLockCalls,
-        fs1.unknownUnlockCalls + fs2.unknownUnlockCalls,
-        fs1.unknownRUnlockCalls + fs2.unknownRUnlockCalls,
-        fs1.unknownTryLockCalls + fs2.unknownTryLockCalls,
-        fs1.unknownTryRLockCalls + fs2.unknownTryRLockCalls,
-        fs1.unknownRLockerCalls + fs2.unknownRLockerCalls,
-        fs1.unknownSignalCalls + fs2.unknownSignalCalls,
-        fs1.unknownBroadcastCalls + fs2.unknownBroadcastCalls,
-        fs1.unknownDoCalls + fs2.unknownDoCalls
+public FeatureSummary mergeSummaries(FeatureSummary fs1, FeatureSummary fs2) 
+    = traditionalConcurrencySummary(
+        fs1.decls + fs2.decls,
+        fs1.calls + fs2.calls,
+        fs1.unknownCalls + fs2.unknownCalls
     );
-}
 
 public FeatureSummary computeSystemSummary(System pt) {
     res = createEmptyTraditionalConcurrencySummary();
@@ -481,46 +304,17 @@ public FeatureSummary computeSystemSummary(System pt) {
     return res;
 }
 
+
 public FeatureCounts computeTraditionalFeatureCounts(FeatureSummary fs) {
-    return traditionalConcurrencyFeatures(
-        size(fs.waitGroupDecls),
-        size(fs.condDecls),
-        size(fs.onceDecls),
-        size(fs.mutexDecls),
-        size(fs.rwMutexDecls),
-        size(fs.lockerDecls),
-        size(fs.waitGroupDoneCalls),
-        size(fs.waitGroupAddCalls),
-        size(fs.waitGroupWaitCalls),
-        size(fs.mutexLockCalls),
-        size(fs.mutexUnlockCalls),
-        size(fs.mutexTryLockCalls),
-        size(fs.rwMutexLockCalls),
-        size(fs.rwMutexUnlockCalls),
-        size(fs.rwMutexTryLockCalls),
-        size(fs.rwMutexTryRLockCalls),
-        size(fs.rwMutexRLockerCalls),
-        size(fs.lockerLockCalls),
-        size(fs.lockerUnlockCalls),
-        size(fs.condLockCalls),
-        size(fs.condUnlockCalls),
-        size(fs.condWaitCalls),
-        size(fs.condSignalCalls),
-        size(fs.condBroadcastCalls),
-        size(fs.condNewCalls),
-        size(fs.onceDoCalls),
-        size(fs.unknownDoneCalls),
-        size(fs.unknownAddCalls),
-        size(fs.unknownWaitCalls),
-        size(fs.unknownLockCalls),
-        size(fs.unknownUnlockCalls),
-        size(fs.unknownTryLockCalls),
-        size(fs.unknownRLockCalls),
-        size(fs.unknownRUnlockCalls),
-        size(fs.unknownTryRLockCalls),
-        size(fs.unknownRLockCalls),
-        size(fs.unknownSignalCalls),
-        size(fs.unknownBroadcastCalls),
-        size(fs.unknownDoCalls)
-    );
+    fc = initTraditionalConcurrencyFeatures();
+    for (d <- featureDecls) {
+        fc.declCounts[d] = size(fs.decls[d]);
+    }
+    for (c <- (featureCalls - unknownCalls)) {
+        fc.callCounts[c] = size(fs.calls[c]);
+    }
+    for (c <- unknownCalls) {
+        fc.unknownCallCounts[c] = size(fs.unknownCalls[c]);
+    }
+    return fc;
 }
