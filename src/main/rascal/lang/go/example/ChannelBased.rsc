@@ -17,3 +17,10 @@ public ChannelMakes findChannelMakes(System pt) {
         | /c:callExpr(ident("make"),[ct:chanType(_,_)],_) := pt };
     return callsWithCapacity + callsWithoutCapacity;
 }
+
+alias ContextTypes = rel[loc contextLocation, Expr contextType];
+
+public ContextTypes findContextTypes(System pt) {
+    return { <ctx.at, unsetRec(ctx)>
+    | /ctx:selectorExpr(ident("context"),"Context") := pt };
+}
