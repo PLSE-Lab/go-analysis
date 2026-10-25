@@ -7,6 +7,7 @@ import IO;
 import Set;
 import Map;
 import List;
+import Node;
 
 private list[str] featureDecls = ["waitGroupDecl", "condDecl", "onceDecl", "mutexDecl", "rwMutexDecl", "lockerDecl"];
 private list[str] waitGroupCalls = ["waitGroupDone", "waitGroupAdd", "waitGroupWait"];
@@ -70,36 +71,69 @@ public FeatureSummary computeFileSummary(File f) {
     FeatureSummary fs = traditionalConcurrencySummary({}, {}, {});
     rel[str,DeclType] declsForName = { };
     
+    // Find structure types that contain embedded types
+    rel[Expr t, loc at] typesWithEmbedded 
+        = { < st, st.at > | /st:structType(flds) := f, fld <- flds, field([],_,_) := fld };
+
+    // Find type specs with these embedded types, match on location to
+    // make sure the type in the spec is one we found above.
+    rel[str n, Expr t, loc at] namedEmbeddedTypes 
+        = { < n, t, t.at > | /typeSpec(n,_,t) := f, t.at in typesWithEmbedded<1> };
+
+    // Build a relation specifically of embedded types
+    rel[Expr n, Expr et] embeddedTypeRel
+        = { < ident(n), unsetRec(et) > | < n, t, l > <- namedEmbeddedTypes, structType(flds) := t, field([],someExpr(et),_) <- flds };
+
     // First, extract all declarations of relevant features from the given
     // file. We need these below as a heuristic -- if we have declared wg as
     // a waitgroup, a call to Done on wg will be a call of the WaitGroup Done
     // function. Note that this is not precise, since this is done on a
     // per-file level, leading to problems with names used in different
     // scopes with different types.
-    bool isWaitGroup(someExpr(selectorExpr(ident("sync"),"WaitGroup"))) = true;
-    bool isWaitGroup(someExpr(starExpr(selectorExpr(ident("sync"),"WaitGroup")))) = true;
+    bool isWaitGroupType(selectorExpr(ident("sync"),"WaitGroup")) = true;
+    bool isWaitGroupType(i:ident(str _)) = size({ et | et <- (embeddedTypeRel+)[i], isWaitGroupType(et)}) > 0;
+    bool isWaitGroupType(starExpr(Expr e)) = isWaitGroupType(e);
+    default bool isWaitGroupType(Expr e) = false;
+    bool isWaitGroup(someExpr(t)) = isWaitGroupType(unsetRec(t));
     default bool isWaitGroup(OptionExpr oe) = false;
 
-    bool isMutex(someExpr(selectorExpr(ident("sync"),"Mutex"))) = true;
-    bool isMutex(someExpr(starExpr(selectorExpr(ident("sync"),"Mutex")))) = true;
+    bool isMutexType(selectorExpr(ident("sync"),"Mutex")) = true;
+    bool isMutexType(i:ident(str _)) = size({ et | et <- (embeddedTypeRel+)[i], isMutexType(et)}) > 0;
+    bool isMutexType(starExpr(Expr e)) = isMutexType(e);
+    default bool isMutexType(Expr e) = false;
+    bool isMutex(someExpr(t)) = isMutexType(unsetRec(t));
     default bool isMutex(OptionExpr oe) = false;
 
-    bool isRWMutex(someExpr(selectorExpr(ident("sync"),"RWMutex"))) = true;
-    bool isRWMutex(someExpr(starExpr(selectorExpr(ident("sync"),"RWMutex")))) = true;
+    bool isRWMutexType(selectorExpr(ident("sync"),"RWMutex")) = true;
+    bool isRWMutexType(i:ident(str _)) = size({ et | et <- (embeddedTypeRel+)[i], isRWMutexType(et)}) > 0;
+    bool isRWMutexType(starExpr(Expr e)) = isRWMutexType(e);
+    default bool isRWMutexType(Expr e) = false;
+    bool isRWMutex(someExpr(t)) = isRWMutexType(unsetRec(t));
     default bool isRWMutex(OptionExpr oe) = false;
 
-    bool isLocker(someExpr(selectorExpr(ident("sync"),"Locker"))) = true;
-    bool isLocker(someExpr(starExpr(selectorExpr(ident("sync"),"Locker")))) = true;
+    bool isLockerType(selectorExpr(ident("sync"),"Locker")) = true;
+    bool isLockerType(i:ident(str _)) = size({ et | et <- (embeddedTypeRel+)[i], isLockerType(et)}) > 0;
+    bool isLockerType(starExpr(Expr e)) = isLockerType(e);
+    default bool isLockerType(Expr e) = false;
+    bool isLocker(someExpr(t)) = isLockerType(unsetRec(t));
     default bool isLocker(OptionExpr oe) = false;
 
-    bool isOnce(someExpr(selectorExpr(ident("sync"),"Once"))) = true;
-    bool isOnce(someExpr(starExpr(selectorExpr(ident("sync"),"Once")))) = true;
+    bool isOnceType(selectorExpr(ident("sync"),"Once")) = true;
+    bool isOnceType(i:ident(str _)) = size({ et | et <- (embeddedTypeRel+)[i], isOnceType(et)}) > 0;
+    bool isOnceType(starExpr(Expr e)) = isOnceType(e);
+    default bool isOnceType(Expr e) = false;
+    bool isOnce(someExpr(t)) = isOnceType(unsetRec(t));
     default bool isOnce(OptionExpr oe) = false;
 
-    bool isCond(someExpr(selectorExpr(ident("sync"),"Cond"))) = true;
-    bool isCond(someExpr(starExpr(selectorExpr(ident("sync"),"Cond")))) = true;
+    bool isCondType(selectorExpr(ident("sync"),"Cond")) = true;
+    bool isCondType(i:ident(str _)) = size({ et | et <- (embeddedTypeRel+)[i], isCondType(et)}) > 0;
+    bool isCondType(starExpr(Expr e)) = isCondType(e);
+    default bool isCondType(Expr e) = false;
+    bool isCond(someExpr(t)) = isCondType(unsetRec(t));
     default bool isCond(OptionExpr oe) = false;
-        
+    
+    // TODO: We will not find inline struct definitions with embedded concurrency types
+    // using this, but this may be a very niche use case.
     visit(f) {
         case genDecl(varDecl(), decls): {
             for (d <- decls, valueSpec(names,oe,_) := d) {
