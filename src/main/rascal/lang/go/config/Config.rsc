@@ -25,7 +25,8 @@ public data ConfigParsing
 		loc parserWorkingDir = |unknown:///|,
 		str go2rascalSrc = "go2rascal.go",
 		str go2rascalBin = "go2rascal",
-		bool runConverterBinary = true
+		bool runConverterBinary = true,
+		loc parserTempDir = |unknown:///|
 	);
 
 @doc{Config settings specifically for the analysis framework.}

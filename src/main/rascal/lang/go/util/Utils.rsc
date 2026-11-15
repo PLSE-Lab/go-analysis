@@ -108,6 +108,63 @@ public File loadGoFile(loc l, bool addLocationAnnotations = true) throws Asserti
 	return res;
 }
 
+@doc{Load an entire Go project at once}
+public System loadGoSystem(loc l, bool addLocationAnnotations = true) throws AssertionFailed {
+	if (!exists(l)) return errorSystem("Location <l> does not exist");
+	if (l.scheme notin {"file","home","project"}) return errorSystem("Only file, home, and project locations are supported");
+	if (!isDirectory(l)) return errorSystem("Location <l> must be a directory");
+
+	logMessage("Loading system at location <l>", 2);
+	
+	list[str] opts = [ ];
+	if (addLocationAnnotations) {
+		opts = opts + [ "--addLocs=True"];
+	} else {
+		opts = opts + [ "--addLocs=False"];
+	}
+
+	loc parserDir = getConfig().parsing.parserWorkingDir;
+	loc scratchDir = getConfig().parsing.parserTempDir;
+	str goOutput = "";
+	try {
+		str projectPath = l.path;
+		if (l.authority != "") {
+			projectPath = l.authority + "/" + projectPath;
+		}
+		str scratchPath = scratchDir.path;
+		if (scratchDir.authority != "") {
+			scratchPath = scratchDir.authority + "/" + scratchPath;
+		}
+		if (getConfig().parsing.runConverterBinary) {
+			goOutput = executeGoBinary(["--projectPath", "<projectPath>", "--scratchDir", "<scratchPath>"] + opts, parserDir);
+		} else {
+			goOutput = executeGo(["run", (parserDir + getConfig().parsing.go2rascalSrc).path, "--projectPath", "<projectPath>", "--scratchDir", "<scratcPath>"] + opts, parserDir);
+		}
+	} catch _: {
+		return errorSystem("Could not parse and load system at location <l>"); 
+	}
+
+	res = errorSystem("Parser failed in unknown way");
+	if (trim(goOutput) != "") {
+		try { 
+			logMessage("Got output <goOutput>", 2);
+			res = createEmptySystem();
+			map[loc,loc] filemap = readTextValueString(#map[loc,loc], goOutput);
+			for (floc <- filemap<0>) {
+				try {
+					res.files[floc] = readTextValueFile(#File, filemap[floc]);
+				} catch e : {
+					res.files[floc] = errorFile("Parser failed: <e>");
+				}
+			}
+		} catch e : {
+			res = errorSystem("Parser failed: <e>");
+		}			
+	}
+
+	return res;
+}
+
 @doc{Load all Go files at a given directory location, with options for which extensions are Go files and location annotations.}
 public System loadGoFiles(loc l, bool addLocationAnnotations = true, set[str] extensions = { "go" }) throws AssertionFailed {
 

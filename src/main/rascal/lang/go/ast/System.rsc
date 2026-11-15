@@ -10,6 +10,7 @@ data System
 	| namedVersionedSystem(str name, str version, loc baseLoc, map[loc fileloc, File file] files)
 	| namedSystem(str name, loc baseLoc, map[loc fileloc, File file] files)
 	| locatedSystem(loc baseLoc, map[loc fileloc, File file] files)
+	| errorSystem(str error)
 	;
 
 @doc{Convert a regular system into a system with a designated name and base location.}

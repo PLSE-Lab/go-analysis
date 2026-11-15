@@ -39,7 +39,7 @@ data Stmt(loc at=|unknown:///|)
     | unknownStmt(str unknownStmt)
     ;
 
-data Expr(loc at=|unknown:///|)
+data Expr(loc at=|unknown:///|, str exprType="")
     = ident(str name)  
     | ellipsis(OptionExpr elementType)
     | basicLit(BasicLiteral literalValue)
@@ -138,7 +138,7 @@ data CommSelector(loc at=|unknown:///|)
     | defaultComm()
     ;
 
-data BasicLiteral(loc at=|unknown:///|)
+data BasicLiteral(loc at=|unknown:///|, str exprType="")
     = literalInt(int theInt)
     | literalFloat(real theFloat)
     | literalImaginary(real theFloat, real imaginaryPart)
