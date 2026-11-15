@@ -109,7 +109,7 @@ public File loadGoFile(loc l, bool addLocationAnnotations = true) throws Asserti
 }
 
 @doc{Load an entire Go project at once}
-public System loadGoSystem(loc l, bool addLocationAnnotations = true) throws AssertionFailed {
+public System loadGoSystem(loc l, bool addLocationAnnotations = true, bool includeTests = false) throws AssertionFailed {
 	if (!exists(l)) return errorSystem("Location <l> does not exist");
 	if (l.scheme notin {"file","home","project"}) return errorSystem("Only file, home, and project locations are supported");
 	if (!isDirectory(l)) return errorSystem("Location <l> must be a directory");
@@ -118,9 +118,15 @@ public System loadGoSystem(loc l, bool addLocationAnnotations = true) throws Ass
 	
 	list[str] opts = [ ];
 	if (addLocationAnnotations) {
-		opts = opts + [ "--addLocs=True"];
+		opts = opts + [ "--addLocs=true"];
 	} else {
-		opts = opts + [ "--addLocs=False"];
+		opts = opts + [ "--addLocs=false"];
+	}
+
+	if (includeTests) {
+		opts = opts + ["--includeTests=true"];
+	} else {
+		opts = opts + ["--includeTests=false"];
 	}
 
 	loc parserDir = getConfig().parsing.parserWorkingDir;
