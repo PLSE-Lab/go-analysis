@@ -4,6 +4,8 @@ import lang::go::ast::AbstractSyntax;
 import lang::go::ast::System;
 import lang::go::util::Utils;
 
+import Set;
+
 import Node;
 
 public data Capacity = capacityNotProvided() | capacityProvided(Expr e);
@@ -87,3 +89,28 @@ public ContextFeatureSummary computeContextFeatureSummary(System pt) {
         findContextWithDeadlineCalls(pt)
     );
 }
+
+
+public data ContextFeatureCounts = contextFeatureCounts(
+    int contextTypes,
+    int backgroundCalls,
+    int todoCalls,
+    int withCancelCalls,
+    int withTimeoutCalls,
+    int withDeadlineCalls
+
+);
+
+public ContextFeatureCounts computeContextFeatureCounts(ContextFeatureSummary cs) {
+    return contextFeatureCounts(
+        size(cs.contextTypes),
+        size(cs.backgroundCalls),
+        size(cs.todoCalls),
+        size(cs.withCancelCalls),
+        size(cs.withTimeoutCalls),
+        size(cs.withDeadlineCalls)
+    );
+
+
+}
+
