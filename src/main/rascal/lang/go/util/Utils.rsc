@@ -11,6 +11,7 @@ import DateTime;
 import List;
 import util::ShellExec;
 import Set;
+import Map;
 
 @doc { 
 	Log level 0 => no logging;
@@ -28,7 +29,7 @@ public void logMessage(str message, int level) {
 @doc{Run the binary version of the Go AST extractor}
 private str executeGoBinary(list[str] opts, loc cwd) {
 	str go2rascalBinLoc = (getConfig().parsing.parserWorkingDir + getConfig().parsing.go2rascalBin).path;
-	// logMessage("Execution options: <opts>", 2);
+	logMessage("Execution options: <opts>", 2);
   	PID pid = createProcess(go2rascalBinLoc, args=opts, workingDir=cwd);
 	str goOutput = readEntireStream(pid);
 	str goErr = readEntireErrStream(pid);
@@ -109,7 +110,7 @@ public File loadGoFile(loc l, bool addLocationAnnotations = true) throws Asserti
 }
 
 @doc{Load an entire Go project at once}
-public System loadGoSystem(loc l, bool addLocationAnnotations = true, bool includeTests = false) throws AssertionFailed {
+public System loadGoSystem(loc l, bool addLocationAnnotations = true, bool includeTests = false, str buildFlags = "") throws AssertionFailed {
 	if (!exists(l)) return errorSystem("Location <l> does not exist");
 	if (l.scheme notin {"file","home","project"}) return errorSystem("Only file, home, and project locations are supported");
 	if (!isDirectory(l)) return errorSystem("Location <l> must be a directory");
@@ -129,6 +130,10 @@ public System loadGoSystem(loc l, bool addLocationAnnotations = true, bool inclu
 		opts = opts + ["--includeTests=false"];
 	}
 
+	if (size(trim(buildFlags)) > 0) {
+		opts = opts + ["--buildFlags=<buildFlags>"];
+	}
+
 	loc parserDir = getConfig().parsing.parserWorkingDir;
 	loc scratchDir = getConfig().parsing.parserTempDir;
 	str goOutput = "";
@@ -144,7 +149,7 @@ public System loadGoSystem(loc l, bool addLocationAnnotations = true, bool inclu
 		if (getConfig().parsing.runConverterBinary) {
 			goOutput = executeGoBinary(["--projectPath", "<projectPath>", "--scratchDir", "<scratchPath>"] + opts, parserDir);
 		} else {
-			goOutput = executeGo(["run", (parserDir + getConfig().parsing.go2rascalSrc).path, "--projectPath", "<projectPath>", "--scratchDir", "<scratcPath>"] + opts, parserDir);
+			goOutput = executeGo(["run", (parserDir + getConfig().parsing.go2rascalSrc).path, "--projectPath", "<projectPath>", "--scratchDir", "<scratchPath>"] + opts, parserDir);
 		}
 	} catch _: {
 		return errorSystem("Could not parse and load system at location <l>"); 
@@ -153,9 +158,10 @@ public System loadGoSystem(loc l, bool addLocationAnnotations = true, bool inclu
 	res = errorSystem("Parser failed in unknown way");
 	if (trim(goOutput) != "") {
 		try { 
-			logMessage("Got output <goOutput>", 2);
+			// logMessage("Got output <goOutput>", 2);
 			res = createEmptySystem();
 			map[loc,loc] filemap = readTextValueString(#map[loc,loc], goOutput);
+			logMessage("Importing <size(filemap)> files", 2);
 			for (floc <- filemap<0>) {
 				try {
 					res.files[floc] = readTextValueFile(#File, filemap[floc]);
