@@ -10,6 +10,7 @@ data System
 	| namedVersionedSystem(str name, str version, loc baseLoc, map[loc fileloc, File file] files)
 	| namedSystem(str name, loc baseLoc, map[loc fileloc, File file] files)
 	| locatedSystem(loc baseLoc, map[loc fileloc, File file] files)
+	| multiModuleSystem(loc baseLoc, map[str name, System s] modules)
 	| errorSystem(str error)
 	;
 

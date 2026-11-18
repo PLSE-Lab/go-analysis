@@ -109,72 +109,129 @@ public File loadGoFile(loc l, bool addLocationAnnotations = true) throws Asserti
 	return res;
 }
 
+@doc{Find all the Go module files starting at a given location}
+public set[loc] findGoModuleFiles(loc baseLoc) {
+	list[loc] entries = [ baseLoc + e | e <- listEntries(baseLoc)];
+	list[loc] dirEntries = [ e | e <- entries, isDirectory(e)];
+	set[loc] modules = { l | l <- entries, l.file == "go.mod" };
+	return modules + { *findGoModuleFiles(l) | l <- dirEntries };
+}
+
+public set[loc] getSubmodulePaths(loc baseLoc) {
+	set[loc] res = { };
+	if (exists(baseLoc + ".gitmodules") && isFile(baseLoc + ".gitmodules")) {
+		gm = readFile(baseLoc + ".gitmodules");
+		smpaths = { p | /path\s*=\s*<p:\S+>/ := gm };
+		res = { baseLoc + p | p <- smpaths, exists(baseLoc + p), isDirectory(baseLoc + p)};
+	}
+	return res;
+}
+
+@doc{See if location l1 is a subdirectory of location l2. This returns true when l1 and l2 are equal.}
+public bool isSubdirectoryOf(loc l1, loc l2) {
+	// Remove all in-file positioning info
+	l1 = l1.top; l2 = l2.top;
+
+	// If the locations are the same, we consider this to be true
+	if (l1.path == l2.path) return true;
+
+	// If the size of the path for l1 is shorter than the path for l2, it
+	// cannot be a subdirectory for l2
+	if (size(l1.path) < size(l2.path)) return false;
+
+	// If l1 is already at the top of the hierarchy, we have nothing else to
+	// check so return false
+	if (l1 == l1.parent) return false;
+
+	// Recurse
+	return isSubdirectoryOf(l1.parent, l2);
+}
+
 @doc{Load an entire Go project at once}
-public System loadGoSystem(loc l, bool addLocationAnnotations = true, bool includeTests = false, str buildFlags = "") throws AssertionFailed {
-	if (!exists(l)) return errorSystem("Location <l> does not exist");
-	if (l.scheme notin {"file","home","project"}) return errorSystem("Only file, home, and project locations are supported");
-	if (!isDirectory(l)) return errorSystem("Location <l> must be a directory");
+public System loadGoSystem(loc baseLoc, bool addLocationAnnotations = true, bool addTypes = true, bool includeTests = false, str buildFlags = "", bool traverseGitSubmodules = false) throws AssertionFailed {
+	if (!exists(baseLoc)) return errorSystem("Location <baseLoc> does not exist");
+	if (baseLoc.scheme notin {"file","home","project"}) return errorSystem("Only file, home, and project locations are supported");
+	if (!isDirectory(baseLoc)) return errorSystem("Location <baseLoc> must be a directory");
 
-	logMessage("Loading system at location <l>", 2);
-	
-	list[str] opts = [ ];
-	if (addLocationAnnotations) {
-		opts = opts + [ "--addLocs=true"];
-	} else {
-		opts = opts + [ "--addLocs=false"];
+	logMessage("Loading system at location <baseLoc>", 2);
+
+	// Get any modules in the project. These are indicated by a go.mod file in the directory.
+	// If we don't have any module files, then we assume we have a single module located in
+	// the base directory. This should only be an issue with older Go projects. Note that we
+	// get back the location of the go.mod file, so we get the parent to actually get the
+	// directory where it is located.
+	modules = { l.parent | l <- findGoModuleFiles(baseLoc) };
+	if (isEmpty(modules)) modules = { baseLoc };
+
+	// Remove the modules inside Git submodules.
+	if (!traverseGitSubmodules) {
+		spaths = getSubmodulePaths(baseLoc);
+		modules = { l | l <- modules, s <- spaths, !(isSubdirectoryOf(l, s)) };
 	}
 
-	if (includeTests) {
-		opts = opts + ["--includeTests=true"];
-	} else {
-		opts = opts + ["--includeTests=false"];
-	}
-
+	// Set up the options to send to the extractor
+	list[str] opts = [ "--addLocs=<addLocationAnnotations>", "--includeTests=<includeTests>", "--addTypes=<addTypes>" ];
 	if (size(trim(buildFlags)) > 0) {
 		opts = opts + ["--buildFlags=<buildFlags>"];
 	}
 
 	loc parserDir = getConfig().parsing.parserWorkingDir;
 	loc scratchDir = getConfig().parsing.parserTempDir;
-	str goOutput = "";
-	try {
-		str projectPath = l.path;
-		if (l.authority != "") {
-			projectPath = l.authority + "/" + projectPath;
-		}
-		str scratchPath = scratchDir.path;
-		if (scratchDir.authority != "") {
-			scratchPath = scratchDir.authority + "/" + scratchPath;
-		}
-		if (getConfig().parsing.runConverterBinary) {
-			goOutput = executeGoBinary(["--projectPath", "<projectPath>", "--scratchDir", "<scratchPath>"] + opts, parserDir);
-		} else {
-			goOutput = executeGo(["run", (parserDir + getConfig().parsing.go2rascalSrc).path, "--projectPath", "<projectPath>", "--scratchDir", "<scratchPath>"] + opts, parserDir);
-		}
-	} catch _: {
-		return errorSystem("Could not parse and load system at location <l>"); 
+	str scratchPath = scratchDir.path;
+	if (scratchDir.authority != "") {
+		scratchPath = scratchDir.authority + "/" + scratchPath;
 	}
 
-	res = errorSystem("Parser failed in unknown way");
-	if (trim(goOutput) != "") {
-		try { 
-			// logMessage("Got output <goOutput>", 2);
-			res = createEmptySystem();
-			map[loc,loc] filemap = readTextValueString(#map[loc,loc], goOutput);
-			logMessage("Importing <size(filemap)> files", 2);
-			for (floc <- filemap<0>) {
-				try {
-					res.files[floc] = readTextValueFile(#File, filemap[floc]);
-				} catch e : {
-					res.files[floc] = errorFile("Parser failed: <e>");
-				}
+	// Process each module in the project. We know we have at least 1.
+	map[str name, System s] systemModules = ( );
+	for (modloc <- modules) {
+		str goOutput = "";
+		try {
+			str projectPath = modloc.path;
+			if (modloc.authority != "") {
+				projectPath = modloc.authority + "/" + projectPath;
 			}
-		} catch e : {
-			res = errorSystem("Parser failed: <e>");
-		}			
+			if (getConfig().parsing.runConverterBinary) {
+				goOutput = executeGoBinary(["--projectPath", "<projectPath>", "--scratchDir", "<scratchPath>"] + opts, parserDir);
+			} else {
+				goOutput = executeGo(["run", (parserDir + getConfig().parsing.go2rascalSrc).path, "--projectPath", "<projectPath>", "--scratchDir", "<scratchPath>"] + opts, parserDir);
+			}
+		} catch _: {
+			return errorSystem("Could not parse and load system at location <modloc>"); 
+		}
+
+		if (trim(goOutput) != "") {
+			try { 
+				// logMessage("Got output <goOutput>", 2);
+				res = createEmptySystem();
+				tuple[str modname, map[loc,loc] filemap] nameAndFiles = readTextValueString(#tuple[str modname, map[loc,loc] filemap], goOutput);
+				logMessage("Importing <size(nameAndFiles.filemap)> files", 2);
+				for (floc <- nameAndFiles.filemap<0>) {
+					try {
+						res.files[floc] = readTextValueFile(#File, nameAndFiles.filemap[floc]);
+					} catch e : {
+						res.files[floc] = errorFile("Parser failed: <e>");
+					}
+				}
+				systemModules[nameAndFiles.modname] = addNameAndLoc(res, nameAndFiles.modname, modloc);
+			} catch e : {
+				return errorSystem("Parser failed: <e>");
+			}			
+		}
 	}
 
-	return res;
+	// Now, if we just have a single module, return a regular system. If we have
+	// multiple modules, return a multi-module system.
+	if (size(systemModules) == 1) {
+		baseModule = getOneFrom(systemModules<0>);
+		if (size(trim(baseModule)) == 0) {
+			return locatedSystem(baseLoc, systemModules[baseModule].files);
+		} else {
+			return namedSystem(trim(baseModule), baseLoc, systemModules[baseModule].files);
+		}
+	} else {
+		return multiModuleSystem(baseLoc, systemModules);
+	}
 }
 
 @doc{Load all Go files at a given directory location, with options for which extensions are Go files and location annotations.}
