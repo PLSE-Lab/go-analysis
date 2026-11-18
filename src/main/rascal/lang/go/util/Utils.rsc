@@ -29,7 +29,7 @@ public void logMessage(str message, int level) {
 @doc{Run the binary version of the Go AST extractor}
 private str executeGoBinary(list[str] opts, loc cwd) {
 	str go2rascalBinLoc = (getConfig().parsing.parserWorkingDir + getConfig().parsing.go2rascalBin).path;
-	logMessage("Execution options: <opts>", 2);
+	// logMessage("Execution options: <opts>", 2);
   	PID pid = createProcess(go2rascalBinLoc, args=opts, workingDir=cwd);
 	str goOutput = readEntireStream(pid);
 	str goErr = readEntireErrStream(pid);
@@ -110,8 +110,10 @@ public File loadGoFile(loc l, bool addLocationAnnotations = true) throws Asserti
 }
 
 @doc{Find all the Go module files starting at a given location}
-public set[loc] findGoModuleFiles(loc baseLoc) {
-	list[loc] entries = [ baseLoc + e | e <- listEntries(baseLoc)];
+public set[loc] findGoModuleFiles(loc baseLoc, bool includeVendor = false) {
+	// NOTE: We filter out hidden directory and file entries with the check for
+	// file/directory names starting with "."
+	list[loc] entries = [ baseLoc + e | e <- listEntries(baseLoc), !startsWith(trim(e),"."), includeVendor ? true : (e != "vendor") ];
 	list[loc] dirEntries = [ e | e <- entries, isDirectory(e)];
 	set[loc] modules = { l | l <- entries, l.file == "go.mod" };
 	return modules + { *findGoModuleFiles(l) | l <- dirEntries };
@@ -148,7 +150,7 @@ public bool isSubdirectoryOf(loc l1, loc l2) {
 }
 
 @doc{Load an entire Go project at once}
-public System loadGoSystem(loc baseLoc, bool addLocationAnnotations = true, bool addTypes = true, bool includeTests = false, str buildFlags = "", bool traverseGitSubmodules = false) throws AssertionFailed {
+public System loadGoSystem(loc baseLoc, bool addLocationAnnotations = true, bool addTypes = true, bool includeTests = false, str buildFlags = "", bool traverseGitSubmodules = false, bool includeVendorFiles = false) throws AssertionFailed {
 	if (!exists(baseLoc)) return errorSystem("Location <baseLoc> does not exist");
 	if (baseLoc.scheme notin {"file","home","project"}) return errorSystem("Only file, home, and project locations are supported");
 	if (!isDirectory(baseLoc)) return errorSystem("Location <baseLoc> must be a directory");
@@ -160,7 +162,7 @@ public System loadGoSystem(loc baseLoc, bool addLocationAnnotations = true, bool
 	// the base directory. This should only be an issue with older Go projects. Note that we
 	// get back the location of the go.mod file, so we get the parent to actually get the
 	// directory where it is located.
-	modules = { l.parent | l <- findGoModuleFiles(baseLoc) };
+	modules = { l.parent | l <- findGoModuleFiles(baseLoc, includeVendor = includeVendorFiles) };
 	if (isEmpty(modules)) modules = { baseLoc };
 
 	// Remove the modules inside Git submodules.
@@ -205,7 +207,7 @@ public System loadGoSystem(loc baseLoc, bool addLocationAnnotations = true, bool
 				// logMessage("Got output <goOutput>", 2);
 				res = createEmptySystem();
 				tuple[str modname, map[loc,loc] filemap] nameAndFiles = readTextValueString(#tuple[str modname, map[loc,loc] filemap], goOutput);
-				logMessage("Importing <size(nameAndFiles.filemap)> files", 2);
+				logMessage("Importing <size(nameAndFiles.filemap)> files for <nameAndFiles.modname>", 2);
 				for (floc <- nameAndFiles.filemap<0>) {
 					try {
 						res.files[floc] = readTextValueFile(#File, nameAndFiles.filemap[floc]);
